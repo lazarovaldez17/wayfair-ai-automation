@@ -5,7 +5,7 @@
 ## Overview
 An n8n workflow that takes a simple style idea as input and transforms it into a detailed image generation prompt for a high-quality moodboard. Powered by Google Gemini.
 
-## Tools Usedproject-01/README.md
+## Tools Used project-01/README.md
 - n8n
 - Google Gemini API
 - HuggingFace
