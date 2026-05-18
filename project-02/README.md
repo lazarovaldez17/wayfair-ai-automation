@@ -171,19 +171,6 @@ Each micro-segment was rendered as a photorealistic interior moodboard via the F
 
 ---
 
-## Setup & Running Locally
-
-The workflow file in this repo is a **sanitized replica** — the HuggingFace API token has been replaced with `<YOUR_HUGGINGFACE_TOKEN>`. To run the workflow yourself:
-
-1. Import `Market Trend Discovery Agent.json` into n8n
-2. Open the **Generate Image (HuggingFace)** node and replace the placeholder in the `Authorization` header with your own HF token (`Bearer hf_xxx...`)
-3. Set up n8n credentials for **Mistral Cloud** and **Google Gemini (PaLM) Api** — the workflow references these by ID but the actual keys live in your n8n credential store
-4. Trigger via the **When chat message received** node
-
-Local working copies that contain real tokens should be named with the `.local.json` suffix (e.g., `Market Trend Discovery Agent.local.json`) — those are matched by `.gitignore` and won't be pushed accidentally.
-
----
-
 ## Key Learnings
 
 - **Aisle logic > broad search:** Specific attribute combos (e.g., "8x10 modern washable") return higher-signal data than generic category searches
@@ -193,7 +180,6 @@ Local working copies that contain real tokens should be named with the `.local.j
 - **Fallback JSON parsing is mandatory:** AI outputs include markdown code fences (` ```json ... ``` `) — every parser node strips them before `JSON.parse()` and falls back to a default object on failure
 - **Split data tasks from writing tasks across models:** Mistral handles deterministic classification/extraction (cheaper, faster), Gemini handles narrative section writing (better prose quality, longer context)
 - **One writer agent per section beats one monolithic writer:** Easier to debug, regenerates faster on failure, lets each agent over-specialize on its section's tone
-- **Secrets never go in the JSON:** Use n8n's credential store for everything; if you must use an inline header during prototyping, sanitize before commit
 
 ---
 
@@ -211,7 +197,6 @@ Local working copies that contain real tokens should be named with the `.local.j
 - [ ] Add structured logging per node (Supabase write) to enable post-run analysis of which segment/category combinations fail most often
 - [ ] Make the Extern API endpoint configurable via env var rather than hardcoded
 - [ ] Add a retry-with-backoff wrapper around the HuggingFace call for cold-start timeouts
-- [ ] Convert the HuggingFace HTTP node to use an n8n credential reference (matching the Mistral/Gemini pattern) so no inline token handling is ever needed again
 
 ---
 
@@ -220,8 +205,7 @@ Local working copies that contain real tokens should be named with the `.local.j
 | File | Description |
 |---|---|
 | `README.md` | Project documentation (this file) |
-| `Market Trend Discovery Agent.json` | Sanitized n8n workflow export — Market Trend Discovery Agent (101 nodes). HuggingFace token replaced with placeholder. |
-| `.gitignore` | Protects local working copies (`*.local.json`) and environment files from being committed |
+| `workflow.json` | Exported n8n workflow — Market Trend Discovery Agent (101 nodes) |
 | `project02_Area_Rug_Trend_Report.pdf` | Sample output — broad Area Rug category trend report |
 | `project02_Specific_Area_Rug_Trend_Report.pdf` | Sample output — narrower Machine-Washable Area Rug trend report (2026–2027 forward look) |
 | `Area_Rug_AI_Generated_image.png` | AI-generated moodboard — Organic Modern Neutral micro-segment |
