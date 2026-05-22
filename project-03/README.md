@@ -3,7 +3,7 @@
 **Externship:** Wayfair AI Automation via Extern  
 **Category Focus:** Area Rugs  
 **Workflow:** Competitor Monitoring Agent  
-**Status:** In Progress — Architecture & System Messages Complete
+**Status:** In Progress — Stages 1–5 Complete
 
 ---
 
@@ -12,6 +12,24 @@
 A multi-stage n8n automation agent that benchmarks Wayfair's Area Rug catalog against key competitors — Amazon, Walmart, and Target — by scraping live product data, normalizing attributes, and running a sequential AI analysis pipeline. The final output is a styled, decision-ready HTML competitive intelligence report uploaded directly to Google Drive.
 
 **The problem it solves:** Writing a competitive analysis manually requires hours of browsing competitor pages, tracking pricing and feature shifts, and organizing findings into a coherent report. This agent automates the entire workflow — input a rug category and competitor URLs, and receive a structured report covering pricing gaps, feature gaps, assortment opportunities, and strategic recommendations in 15–20 minutes.
+
+---
+
+## Build Progress
+
+| Stage | Description | Status |
+|---|---|---|
+| **Stage 1** | Chat Trigger & User Input | ✅ Complete |
+| **Stage 2** | Input Parser & Validation | ✅ Complete |
+| **Stage 3** | Wayfair Baseline Scraper | ✅ Complete |
+| **Stage 4** | Amazon Scraper (dual-path) | ✅ Complete |
+| **Stage 5** | Walmart Scraper + ScraperAPI | ✅ Complete |
+| **Stage 5B** | Target Scraper | ⏳ Deferred to v2 |
+| **Stage 6** | 7-Node Gemini AI Analysis Pipeline | 🔄 In Progress |
+| **Stage 7** | HTML Report Assembly | ⬜ Pending |
+| **Stage 8** | Google Drive MCP Upload | ⬜ Pending |
+
+**Workflow stats:** 43 nodes · 3 retailers live · last updated May 22, 2026
 
 ---
 
@@ -140,9 +158,29 @@ https://www.target.com/c/rugs/-/N-5xtnr...
 
 ---
 
-### Stages 3–5B — Scraping Layer (Modular Pattern)
+### Stage 5 — Walmart Scraping: ScraperAPI Integration
 
-All four retailer scrapers follow the same parameterized template:
+Walmart's anti-bot infrastructure returns a **412 Precondition Failed** response to standard HTTP requests regardless of User-Agent headers. Direct fetch is blocked at the TLS fingerprinting layer — automated clients cannot replicate the browser handshake signals Walmart checks.
+
+**Fix applied:** All three Walmart HTTP nodes (`Fetch Walmart Product`, `Fetch Walmart Collection`, `Fetch Walmart Product2`) are routed through ScraperAPI, which handles rotating residential proxies, browser rendering, and bot-detection bypass automatically.
+
+```
+// URL field in each Walmart HTTP node
+http://api.scraperapi.com?api_key={{ $credentials.scraperApiKey }}&url={{ encodeURIComponent($json.url) }}
+```
+
+| Consideration | Detail |
+|---|---|
+| Latency | +3–8s per request vs. <1s direct fetch |
+| Rate limit | Free tier: 1,000 calls/month |
+| Reliability | More reliable than direct fetch once bot detection triggers |
+| Mitigation | Existing 1.5s Wait nodes kept alongside ScraperAPI routing |
+
+---
+
+### Stages 3–5 — Scraping Layer (Modular Pattern)
+
+All retailer scrapers follow the same parameterized template:
 
 1. Prepare URLs → split into individual items
 2. Guard against empty input (IF node) — prevents null HTTP requests
@@ -229,6 +267,7 @@ This scopes every AI analysis to the user's actual input — no hardcoded catego
 **API Credentials required:**
 - Google Gemini API
 - Google Drive MCP (OAuth)
+- ScraperAPI key (for Walmart scraping — store as n8n credential, do not hardcode in URL field)
 
 ---
 
@@ -248,6 +287,12 @@ If a retailer returns fewer than 3 products, nodes flag `low_sample: true` in th
 
 ### 5. Wait nodes are load-bearing
 Gemini rate limits will fail chained AI calls without deliberate pauses. Every Stage 6 node is preceded by a Wait node — this is not optional. Runtime increases but reliability across the full pipeline is maintained.
+
+### 6. ScraperAPI as the Walmart proxy layer
+Direct HTTP requests to Walmart are blocked by TLS fingerprinting and bot detection — User-Agent spoofing alone is insufficient. Routing through ScraperAPI adds 3–8s per request but is the only reliable fetch path. This is treated as an infrastructure dependency, not a workaround.
+
+### 7. Null-safe empty returns in data pipeline nodes
+Code nodes that split URL arrays into individual items return `[]` (empty array) when the input array is empty — not a placeholder item with `url: null`. A null URL passing through an IF gate with strict `notEquals ""` type validation evaluates as truthy (`null !== ""`), leaks into the HTTP Request node, and is stringified to the literal string `"null"` by n8n's expression engine, causing a "URL must start with http" error. Empty array stops the chain cleanly with zero items.
 
 ---
 
@@ -278,6 +323,13 @@ Before building, a manual competitor analysis was run on two sample products to 
 - **System message quality determines report quality more than model choice:** A well-structured 5-layer system message outperforms a stronger model with a vague prompt — the framework matters more than the API
 - **JSON schema drift is a silent killer:** If field names in the AI output differ between runs, the report assembler fails with no obvious error. Hardcoding the exact schema in the system message is the only reliable fix
 
+## Key Learnings (Build — Stages 1–5)
+
+- **n8n expression format is load-bearing:** `=={{$json.url}}` (no space) causes n8n to prepend a literal `=` to every resolved URL — the sentinel `=` prefix strips correctly only when the expression body starts with `{{ ` (space after the opening braces). Every HTTP node URL field must use `={{ $json.url }}`, not `=={{$json.url}}`. One character difference, workflow-breaking result.
+- **Null URLs become the string "null" in n8n expressions:** When `$json.url` is JavaScript `null` and evaluated inside `={{ }}`, n8n stringifies it to the four-character string `"null"`. An IF node checking `url notEquals ""` with strict type validation passes null through because `null !== ""` is true. Fix: return `[]` from Code nodes when input arrays are empty — zero items, zero downstream execution.
+- **Bot detection requires infrastructure-level bypass, not header tricks:** Walmart's 412 response is triggered at the TLS layer, not the application layer. Rotating User-Agent headers has no effect. ScraperAPI is the correct solution — it should be treated as a required credential alongside the API keys, not a workaround added after the fact.
+- **Modular scraper patterns expose bugs faster:** Building Walmart scraping as a parameterized copy of the Amazon pattern meant the same expression bug appeared in both — and was caught and fixed in both simultaneously. Consistency in node patterns makes debugging O(1) instead of O(n retailers).
+
 ---
 
 ## Planned Improvements
@@ -294,7 +346,7 @@ Before building, a manual competitor analysis was run on two sample products to 
 | File | Description |
 |---|---|
 | `README.md` | Project documentation (this file) |
-| `workflow.json` | Exported n8n workflow — Competitor Monitoring Agent |
+| `Project03_Error_Log.docx` | Error log — all bugs encountered and resolved during build |
 
 ---
 
