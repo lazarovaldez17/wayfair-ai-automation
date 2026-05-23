@@ -3,7 +3,7 @@
 **Externship:** Wayfair AI Automation via Extern  
 **Category Focus:** Area Rugs  
 **Workflow:** Competitor Monitoring Agent  
-**Status:** In Progress — Stages 1–5 Complete
+**Status:** Complete — All Stages Finalized · Report Delivered
 
 ---
 
@@ -19,17 +19,16 @@ A multi-stage n8n automation agent that benchmarks Wayfair's Area Rug catalog ag
 
 | Stage | Description | Status |
 |---|---|---|
-| **Stage 1** | Chat Trigger & User Input | ✅ Complete |
-| **Stage 2** | Input Parser & Validation | ✅ Complete |
-| **Stage 3** | Wayfair Baseline Scraper | ✅ Complete |
-| **Stage 4** | Amazon Scraper (dual-path) | ✅ Complete |
-| **Stage 5** | Walmart Scraper + ScraperAPI | ✅ Complete |
-| **Stage 5B** | Target Scraper | ⏳ Deferred to v2 |
-| **Stage 6** | 7-Node Gemini AI Analysis Pipeline | 🔄 In Progress |
-| **Stage 7** | HTML Report Assembly | ⬜ Pending |
-| **Stage 8** | Google Drive MCP Upload | ⬜ Pending |
+| **Stage 1** | Input & Routing — Chat Trigger + Input Parser | ✅ Complete |
+| **Stage 2** | Wayfair Baseline Scraper | ✅ Complete |
+| **Stage 3** | Amazon Scraper (dual-path: collection + direct) | ✅ Complete |
+| **Stage 4** | Walmart Scraper (dual-path: collection + direct) | ✅ Complete |
+| **Stage 5** | AI Analysis Pipeline — 7-section sequential report | ✅ Complete |
+| **Stage 6** | HTML Report Assembly & Download | ✅ Complete |
+| **Stage 7** | Google Drive Upload | ✅ Complete |
+| **Target Scraper** | Target competitor scraper | ⏳ Deferred to v2 |
 
-**Workflow stats:** 43 nodes · 3 retailers live · last updated May 22, 2026
+**Workflow stats:** 65 nodes · 56 connections · 2 retailers live · 6 AI agents · last updated May 2026
 
 ---
 
@@ -346,6 +345,11 @@ Before building, a manual competitor analysis was run on two sample products to 
 | File | Description |
 |---|---|
 | `README.md` | Project documentation (this file) |
+| `Competitor_Analysis_Report.html` | Final deliverable — styled HTML competitive intelligence report (Wayfair vs Amazon vs Walmart, Area Rugs). Sections: executive summary, competitor analysis, comparison table, pricing insights, whitespace analysis, strategic recommendations, supplier identification |
+| `Competitor_Analysis_Report.pdf` | PDF export of the final report — print-ready format for sharing with stakeholders |
+| `Wayfair_Competitor_Monitoring_Agent_Workflow_SAFE.json` | n8n workflow export — all credentials removed, session cookies replaced with env variable references |
+| `.env.example` | Environment variable template — copy to `.env` and fill in values; never committed to GitHub |
+| `.gitignore` | Blocks `.env`, credential exports, and OS/editor artifacts from being committed |
 | `Project03_Error_Log.docx` | Error log — all bugs encountered and resolved during build |
 
 ---
