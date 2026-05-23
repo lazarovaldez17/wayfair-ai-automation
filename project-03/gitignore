@@ -1,0 +1,24 @@
+# =========================================================
+# .gitignore — Wayfair AI Automation
+# =========================================================
+
+# Environment variables — NEVER commit actual secrets
+.env
+.env.local
+.env.production
+
+# n8n credential exports (contain raw API keys)
+*credentials*.json
+*creds*.json
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+npm-debug.log
+
+# Editor
+.vscode/
+.idea/
