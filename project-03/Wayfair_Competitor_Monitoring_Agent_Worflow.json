@@ -1,0 +1,2488 @@
+{
+  "name": "Wayfair Competitor Monitoring Agent Worflow",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Overview - Competitor Monitoring Agent\n\n**Stage 1A: User Input**\n\n**Stage 1B: Input Parsing**\n\n**Stage 2: Scrape Wayfair Data**\n\n**Stage 3: Scrape Amazon Data**\n\n**Stage 4: Scrape Walmart Data**\n\n**Stage 5: Analysis**\n\n**Stage 6: HTML Report & Synthesis**\n\n**Stage 7: Google Drive Upload**\n",
+        "height": 304,
+        "width": 736,
+        "color": "#EAEA00"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1104,
+        0
+      ],
+      "id": "4776a622-b078-427c-a925-e566d1677bde",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Stage 1A: User Input\n",
+        "height": 256,
+        "width": 624,
+        "color": "#C0C0C0"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -32,
+        64
+      ],
+      "typeVersion": 1,
+      "id": "87a89191-3499-4809-935f-230957d7029e",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        144,
+        128
+      ],
+      "id": "70f8f65c-5aa7-4b95-a2ba-18d188d62c93",
+      "name": "When chat message received",
+      "webhookId": "890c021b-b3ba-4424-9c26-433861f901c2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// INPUT PARSER - Project 3 Competitor Monitoring\n// Extracts category, maps to Wayfair URL, and extracts Amazon + Walmart URLs\n\nconst input = $input.first().json.chatInput || '';\n\n// Category definitions with Wayfair URL mapping\nconst categories = [\n  { \n    key: 'area_rug', \n    patterns: ['area rug', 'area rugs'],\n    wayfairUrl: 'https://www.wayfair.com/rugs/sb0/area-rugs-c215386.html',\n    displayName: 'Area Rugs'\n  },\n  { \n    key: 'outdoor_rug', \n    patterns: ['outdoor rug', 'outdoor rugs', 'patio rug', 'patio rugs'],\n    wayfairUrl: 'https://www.wayfair.com/rugs/sb0/outdoor-rugs-c478542.html',\n    displayName: 'Outdoor Rugs'\n  },\n  { \n    key: 'hallway_runner', \n    patterns: ['hallway runner', 'runner rug', 'hall runner', 'runners', 'hallway runners'],\n    wayfairUrl: 'https://www.wayfair.com/rugs/sb0/hallway-runners-c416168.html',\n    displayName: 'Hallway Runners'\n  },\n  { \n    key: 'shag_rug', \n    patterns: ['shag rug', 'shag rugs', 'shaggy rug', 'shaggy rugs'],\n    wayfairUrl: 'https://www.wayfair.com/rugs/sb1/shag-area-rugs-c215386-a2959~477552.html',\n    displayName: 'Shag Rugs'\n  }\n];\n\n// Detect category from input\nconst inputLower = input.toLowerCase();\nlet detectedCategory = null;\n\nfor (const cat of categories) {\n  for (const pattern of cat.patterns) {\n    if (inputLower.includes(pattern)) {\n      detectedCategory = cat;\n      break;\n    }\n  }\n  if (detectedCategory) break;\n}\n\n// Default to area_rug if no category detected\nif (!detectedCategory) {\n  detectedCategory = categories[0];\n  console.log('No category detected, defaulting to area_rug');\n}\n\n// Extract Amazon URLs from input\nconst amazonRegex = /(https?:\\/\\/(?:www\\.)?amazon\\.[a-z.]+\\/[^\\s]+)/gi;\nconst amazonUrls = input.match(amazonRegex) || [];\n\n// Classify Amazon URLs into products and collections\nconst amazonProducts = [];\nconst amazonCollections = [];\n\namazonUrls.forEach(url => {\n  const cleanUrl = url.trim().replace(/,+$/, '');\n  if (/\\/dp\\/|\\/gp\\/product\\//.test(cleanUrl)) {\n    amazonProducts.push(cleanUrl);\n  } else if (/\\/gp\\/bestsellers\\/|\\/s\\?|\\/b\\//.test(cleanUrl)) {\n    amazonCollections.push(cleanUrl);\n  }\n});\n\n// Extract Walmart URLs from input\nconst walmartRegex = /(https?:\\/\\/(?:www\\.)?walmart\\.com\\/[^\\s]+)/gi;\nconst walmartUrls = input.match(walmartRegex) || [];\n\n// Classify Walmart URLs into products and collections\nconst walmartProducts = [];\nconst walmartCollections = [];\n\nwalmartUrls.forEach(url => {\n  const cleanUrl = url.trim().replace(/,+$/, '');\n  if (/\\/ip\\//.test(cleanUrl)) {\n    walmartProducts.push(cleanUrl);\n  } else if (/\\/search\\?q=|\\/browse\\//.test(cleanUrl)) {\n    walmartCollections.push(cleanUrl);\n  }\n});\n\n// Validate input - now includes Walmart\nconst hasValidInput = amazonProducts.length > 0 || amazonCollections.length > 0 || walmartProducts.length > 0 || walmartCollections.length > 0;\n\nconsole.log(`Category: ${detectedCategory.displayName}`);\nconsole.log(`Wayfair URL: ${detectedCategory.wayfairUrl}`);\nconsole.log(`Amazon Products: ${amazonProducts.length}, Collections: ${amazonCollections.length}`);\nconsole.log(`Walmart Products: ${walmartProducts.length}, Collections: ${walmartCollections.length}`);\n\nreturn [{\n  json: {\n    category: detectedCategory.key,\n    categoryDisplayName: detectedCategory.displayName,\n    wayfairUrl: detectedCategory.wayfairUrl,\n    productUrls: amazonProducts,\n    collectionUrls: amazonCollections,\n    walmartProductUrls: walmartProducts,\n    walmartCollectionUrls: walmartCollections,\n    hasValidInput: hasValidInput,\n    originalInput: input,\n    parsedAt: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        432
+      ],
+      "id": "d20ac0e8-06a4-4c0d-8978-4a51cb4bfb77",
+      "name": "Input Parser"
+    },
+    {
+      "parameters": {
+        "content": "## Stage 1B: Input Parsing\n",
+        "height": 240,
+        "width": 624,
+        "color": "#FF9B9B"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -32,
+        352
+      ],
+      "id": "4e63aced-c48d-4bd8-971e-96a1e9878d30",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Collection URLs - split into individual items\nconst collectionUrls = $input.first().json.collectionUrls || [];\n\nif (collectionUrls.length === 0) {\n  return [{ json: { url: null, type: 'no_collections' } }];\n}\n\nreturn collectionUrls.map(url => ({ json: { url, type: 'collection' } }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        -112
+      ],
+      "id": "95fa68c1-9e2b-406c-b20b-2c5b9c5e758a",
+      "name": "Prepare Collection List1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "check-collection-url",
+              "leftValue": "={{ $json.url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        928,
+        -112
+      ],
+      "id": "15e03aea-3994-455c-b82c-0512cea73059",
+      "name": "Is List Empty?1"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "i18n-prefs=USD; lc-main=en_US; session-id=141-8209501-9981461; session-id-time=2082787201l; ubid-main=134-5719883-5851066"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1152,
+        -112
+      ],
+      "id": "11ac5b13-9510-456e-aba6-87911caa26be",
+      "name": "Visit Aisle Page1",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "product_links",
+              "cssSelector": "div div a[href*='/dp/']",
+              "returnValue": "attribute",
+              "attribute": "href",
+              "returnArray": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        1376,
+        -112
+      ],
+      "id": "fea3e627-d11e-458e-949a-5ba445494eaf",
+      "name": "Extract Product Links1",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Clean and deduplicate product URLs from collection (matching v1 approach)\nconst links = $input.first().json.product_links || [];\n\n// Remove duplicates from product_links array\nconst uniqueLinks = [...new Set(links)];\n\n// Add base URL to make complete URLs\nconst fullUrls = uniqueLinks.map(link => {\n  if (link.startsWith('/')) {\n    return `https://www.amazon.com${link}`;\n  }\n  return link;\n});\n\n// Limit to 10 products like v1\nconst limitedUrls = fullUrls.slice(0, 10);\n\nif (limitedUrls.length === 0) {\n  return [{ json: { url: null, type: 'no_products_found', source: 'collection' } }];\n}\n\n// Split URLs into individual items for processing one by one\nreturn limitedUrls.map(url => ({ json: { url, type: 'product', source: 'collection' } }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        -112
+      ],
+      "id": "16b50525-bbab-4ca8-bc65-c662c882997e",
+      "name": "Remove Duplicate Links1"
+    },
+    {
+      "parameters": {
+        "amount": 1.5
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1824,
+        -112
+      ],
+      "id": "6da41d13-714f-41ce-a2bc-14d3d51e07a5",
+      "name": "Pause for Safety1",
+      "webhookId": "057113c6-b4cf-4800-b3a8-8914d8ef1c0f"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "i18n-prefs=USD; lc-main=en_US; session-id=141-8209501-9981461; session-id-time=2082787201l; ubid-main=134-5719883-5851066"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2048,
+        -112
+      ],
+      "id": "a2dec893-e909-41cf-b4fd-05baaedc20a9",
+      "name": "Visit Product Page1",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Amazon Product Data using Cheerio\nconst cheerio = require('cheerio');\nconst results = [];\n\nfor (const item of $input.all()) {\n  try {\n    // Handle both full response format and regular format\n    let html = item.json.body || item.json.data || '';\n    let url = '';\n    \n    if (!html) {\n      continue;\n    }\n    \n    const $ = cheerio.load(html);\n    \n    // Extract URL from canonical link in HTML\n    const canonicalUrl = $('link[rel=\"canonical\"]').attr('href');\n    url = canonicalUrl || 'Amazon Product';\n    \n    const name = $('#productTitle').text().trim();\n    if (!name) continue;\n    \n    const price = $('span.a-price span.a-price-whole').first().text().trim();\n    \n    const details = [];\n    $('#feature-bullets ul.a-unordered-list li span.a-list-item').each((i, el) => {\n      const text = $(el).text().trim();\n      if (text && text.length > 0) {\n        details.push(text);\n      }\n    });\n    \n    const pattern = $('#inline-twister-expanded-dimension-text-pattern_name').text().trim();\n    \n    results.push({\n      url,\n      name,\n      price,\n      details,\n      pattern,\n      scraped_at: new Date().toISOString()\n    });\n  } catch (error) {\n    console.error('Error processing item:', error);\n  }\n}\n\nreturn [{\n  json: {\n    products: results,\n    total_scraped: results.length,\n    successful_scrapes: results.length,\n    failed_scrapes: 0,\n    batch_scraped_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2272,
+        -112
+      ],
+      "id": "d68f5a99-e15b-4b32-b781-d268421e4977",
+      "name": "Read Item Details1",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Direct Product URLs - split into individual items\nconst productUrls = $input.first().json.productUrls || [];\n\nif (productUrls.length === 0) {\n  return [{ json: { url: null, type: 'no_products' } }];\n}\n\nreturn productUrls.map(url => ({ json: { url, type: 'direct_product' } }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        80
+      ],
+      "id": "62614553-22dd-4dda-8369-bb46e0f6b606",
+      "name": "Prepare Direct Links1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "check-product-url",
+              "leftValue": "={{ $json.url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1824,
+        80
+      ],
+      "id": "17120733-8b1b-4e45-b2b5-74985ea9f700",
+      "name": "Do We Have Direct Links?1"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2048,
+        80
+      ],
+      "id": "77673cd5-a2f9-4644-9d22-2075c19c2bfc",
+      "name": "Visit Direct Product Page1",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Amazon Product Data using Cheerio\nconst cheerio = require('cheerio');\nconst results = [];\n\nfor (const item of $input.all()) {\n  try {\n    // Handle both full response format and regular format\n    let html = item.json.body || item.json.data || '';\n    let url = '';\n    \n    if (!html) {\n      continue;\n    }\n    \n    const $ = cheerio.load(html);\n    \n    // Extract URL from canonical link in HTML\n    const canonicalUrl = $('link[rel=\"canonical\"]').attr('href');\n    url = canonicalUrl || 'Amazon Product';\n    \n    const name = $('#productTitle').text().trim();\n    if (!name) continue;\n    \n    const price = $('span.a-price span.a-price-whole').first().text().trim();\n    \n    const details = [];\n    $('#feature-bullets ul.a-unordered-list li span.a-list-item').each((i, el) => {\n      const text = $(el).text().trim();\n      if (text && text.length > 0) {\n        details.push(text);\n      }\n    });\n    \n    const pattern = $('#inline-twister-expanded-dimension-text-pattern_name').text().trim();\n    \n    results.push({\n      url,\n      name,\n      price,\n      details,\n      pattern,\n      scraped_at: new Date().toISOString()\n    });\n  } catch (error) {\n    console.error('Error processing item:', error);\n  }\n}\n\nreturn [{\n  json: {\n    products: results,\n    total_scraped: results.length,\n    successful_scrapes: results.length,\n    failed_scrapes: 0,\n    batch_scraped_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2272,
+        80
+      ],
+      "id": "6fb0d307-2db7-4950-b29b-56536c84f7b5",
+      "name": "Read Direct Item Details1",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2496,
+        -16
+      ],
+      "id": "70f3b02d-39cb-4d73-8229-30592ff7a8f9",
+      "name": "Merge Amazon Products (Collection + Direct)1"
+    },
+    {
+      "parameters": {
+        "content": "## STAGE 3: AMAZON SCRAPING\n\nTwo paths:\n1. Collection URLs → Extract product links → Scrape each\n2. Direct product URLs → Scrape directly\n\nUses Cheerio to parse:\n- Product name, price, brand\n- Details, description, specs\n- Pattern, size, rating\n\nIncludes 1.5s wait between requests.",
+        "height": 740,
+        "width": 2304,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        656,
+        -416
+      ],
+      "typeVersion": 1,
+      "id": "135992e3-d3c7-4609-8f73-9244c89611fd",
+      "name": "Stage 2A Note"
+    },
+    {
+      "parameters": {
+        "content": "## Stage 5: AI Analysis\n**- Scope**\n**- Summary**\n**- Gaps**\n**- Recommendations**",
+        "height": 1136,
+        "width": 4304,
+        "color": "#617E67"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2992,
+        64
+      ],
+      "typeVersion": 1,
+      "id": "a4d74f87-26bd-4793-b0d8-2b2832e3b73d",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3136,
+        448
+      ],
+      "id": "52ed3a26-3522-4ba8-9f66-320640ce87bc",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "content": "## Stage 2: WAYFAIR SCRAPING\n**• Fetches the HTML from Wayfair's category page** \n**• Parses JSON data from Wayfair's page structure**\n**• Removes products without titles**\n**• Combines all products into structured output**\n**• Logs the final output for debugging**",
+        "height": 384,
+        "width": 2080,
+        "color": "#9393FF"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        656,
+        352
+      ],
+      "typeVersion": 1,
+      "id": "b9e60d0b-1903-46fa-afdd-7449e766f87a",
+      "name": "Sticky Note8"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.wayfairUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1136,
+        560
+      ],
+      "id": "0dd9b047-f3bc-42c9-be8d-514e282bb835",
+      "name": "Fetch Wayfair Rug Page"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract products from Wayfair's JSON response structure\nconst inputData = $input.first().json;\n\nconsole.log('Input data type:', typeof inputData);\nconsole.log('Input data keys:', Object.keys(inputData));\n\n// Parse JSON if it's a string\nlet jsonData = inputData.data || inputData.body || inputData;\nif (typeof jsonData === 'string') {\n  try {\n    jsonData = JSON.parse(jsonData);\n  } catch (e) {\n    return [{ json: { error: 'Failed to parse JSON', message: e.message } }];\n  }\n}\n\n// Handle array format (like your example)\nif (Array.isArray(jsonData)) {\n  jsonData = jsonData[0];\n}\n\nconsole.log('Working with data structure:', Object.keys(jsonData));\n\n// Extract products from browse.browse_grid_objects\nconst products = [];\n\ntry {\n  const browseData = jsonData.browse;\n  if (!browseData || !browseData.browse_grid_objects) {\n    return [{ json: { error: 'No browse data found', availableKeys: Object.keys(jsonData) } }];\n  }\n\n  const gridObjects = browseData.browse_grid_objects;\n  console.log(`Found ${gridObjects.length} products in browse_grid_objects`);\n\n  gridObjects.forEach((item, index) => {\n    try {\n      // Extract basic product info\n      const title = item.product_name || '';\n      const manufacturer = item.manufacturer || '';\n      const sku = item.sku || '';\n      const url = item.url || '';\n\n      // Extract pricing information\n      let price = '';\n      let listPrice = '';\n      let salePrice = '';\n      let discountPercent = '';\n\n      if (item.raw_pricing_data && item.raw_pricing_data.pricing) {\n        const pricing = item.raw_pricing_data.pricing;\n        \n        // Get display price\n        if (pricing.customerPrice && pricing.customerPrice.display) {\n          price = `$${pricing.customerPrice.display.value}`;\n          salePrice = price;\n        }\n        \n        // Get list price  \n        if (pricing.listPrice && pricing.listPrice.display) {\n          listPrice = `$${pricing.listPrice.display.value}`;\n        }\n        \n        // Get discount percentage\n        if (item.percent_off_amount) {\n          discountPercent = `${item.percent_off_amount}%`;\n        }\n      }\n\n      // Extract image info - Wayfair CDN URL format:\n      // https://assets.wfcdn.com/im/{prefix}/resize-h{H}-w{W}%5Ecompr-r85/{folder}/{ireid}/{product_name}.jpg\n      // Note: prefix can be any number (CDN ignores it), folder = first 4 digits of ireid\n      let imageUrl = '';\n      if (item.image_data && item.image_data.ireid) {\n        const ireid = item.image_data.ireid.toString();\n        const folder = ireid.substring(0, 4);\n        // URL-encode product name: remove special chars, spaces to +\n        const productName = (title || 'product').replace(/[^a-zA-Z0-9 ]/g, '').replace(/\\s+/g, '+');\n        // Extract piid from URL if available\n        const piidMatch = url.match(/piid=(\\d+)/);\n        const piid = piidMatch ? piidMatch[1] : '';\n        const filename = piid ? `${productName}-${piid}.jpg` : `${productName}.jpg`;\n        imageUrl = `https://assets.wfcdn.com/im/00000001/resize-h600-w600%5Ecompr-r85/${folder}/${ireid}/${filename}`;\n      }\n\n      // Extract reviews\n      let rating = '';\n      let reviewCount = '';\n      if (item.average_overall_rating) {\n        rating = item.average_overall_rating.toString();\n      }\n      if (item.review_count) {\n        reviewCount = item.review_count.toString();\n      }\n\n      // Extract features/materials\n      const features = item.features_array || [];\n      \n      // Extract shipping info\n      const freeShipping = item.has_free_shipping || false;\n      const shippingText = item.free_ship_text || '';\n      \n      // Extract size options\n      const sizeOptions = item.configured_option_names || [];\n      \n      // Only add products with meaningful data\n      if (title && title.length > 2) {\n        products.push({\n          title: title,\n          manufacturer: manufacturer,\n          sku: sku,\n          url: url,\n          price: price,\n          list_price: listPrice,\n          sale_price: salePrice,\n          discount_percent: discountPercent,\n          image_url: imageUrl,\n          rating: rating,\n          review_count: reviewCount,\n          features: features,\n          size_options: sizeOptions,\n          free_shipping: freeShipping,\n          shipping_text: shippingText,\n          scraped_at: new Date().toISOString()\n        });\n      }\n    } catch (e) {\n      console.log(`Error processing product ${index}:`, e.message);\n    }\n  });\n\n  console.log(`Successfully extracted ${products.length} products`);\n  \n} catch (e) {\n  console.log('Error processing browse data:', e.message);\n  return [{ json: { error: 'Failed to process browse data', message: e.message } }];\n}\n\n// Return products or error message\nreturn products.length > 0 \n  ? products.map(product => ({ json: product }))\n  : [{ json: { message: 'No products found', dataStructure: Object.keys(jsonData) } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1424,
+        512
+      ],
+      "id": "edfc18e5-89d1-4c9c-95ae-ebfbab7ea34b",
+      "name": "Extract Rug Products"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fb6171e6-ed9a-4c2b-a861-1bae89be4df6",
+              "leftValue": "={{ $json.title }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        1728,
+        512
+      ],
+      "id": "9042bdd9-b442-4b1d-b210-6c823c10e4cb",
+      "name": "Filter Valid Products"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect all products and create final JSON structure\nconst allProducts = $input.all().map(item => item.json);\n\nconst finalOutput = {\n  scrape_info: {\n    source: 'wayfair.com',\n    category: 'rugs',\n    scraped_at: new Date().toISOString(),\n    total_products: allProducts.length,\n    source_url: 'https://www.wayfair.com/rugs-pillows-and-throws/sb0/rugs-c215386.html'\n  },\n  wayfair_products: allProducts\n};\n\nconsole.log(`Final JSON contains ${allProducts.length} products`);\n\nreturn [{ json: finalOutput }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2096,
+        512
+      ],
+      "id": "73668018-e0a3-4795-9de2-2371b6775418",
+      "name": "Create Final JSON"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconsole.log(JSON.stringify(data, null, 2));\nreturn [{ json: data }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2496,
+        512
+      ],
+      "id": "7a67672f-556c-49bf-a419-e3e8329cc98a",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "content": "## Stage 4: WALMART SCRAPING\n**Double click** ",
+        "height": 704,
+        "width": 2864,
+        "color": "#8A8AFF"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        1232
+      ],
+      "id": "fca438d2-cc27-4776-8cc2-f159d059a018",
+      "name": "Sticky Note9"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Walmart Product URLs - split into individual items\nconst walmartProductUrls = $input.first().json.walmartProductUrls || [];\n\nif (walmartProductUrls.length === 0) {\n  return [];\n}\n\nreturn walmartProductUrls.map(url => ({ json: { url, type: 'walmart_product' } }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -512,
+        1376
+      ],
+      "id": "ded206f7-5391-477e-8c26-5c428a7d3e9e",
+      "name": "Process Walmart Products"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "54c299af-4e74-4722-86dd-f247f0becaae",
+              "leftValue": "={{ $json.url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -304,
+        1376
+      ],
+      "id": "5ed89067-1566-41d6-bb05-944f1bcb8480",
+      "name": "Has Walmart Product URL?"
+    },
+    {
+      "parameters": {
+        "amount": 1.5
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        160,
+        1312
+      ],
+      "id": "46d1f2a4-c1c6-461d-b57c-d6d947292ba5",
+      "name": "Wait Walmart Product",
+      "webhookId": "0c6192e7-e189-497d-9aa8-8efa44c6e01f"
+    },
+    {
+      "parameters": {
+        "url": "={{$json.url}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 70000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        800,
+        1312
+      ],
+      "id": "3e1708a7-4f5b-4101-bfd1-07c6b7840988",
+      "name": "Fetch Walmart Product"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Walmart Product Data\nconst inputItems = $input.all();\nconst allProducts = [];\n\nfunction extractProductData(html) {\n  const product = {\n    name: null,\n    price: null,\n    originalPrice: null,\n    sizes: [],\n    colors: [],\n    description: null,\n    productId: null,\n    source: 'walmart'\n  };\n\n  // Extract Product Name\n  const nameMatch = html.match(/<h1[^>]*id=\"main-title\"[^>]*>([^<]+)/i);\n  if (nameMatch) product.name = nameMatch[1].trim();\n\n  // Extract Current Price\n  const priceMatch = html.match(/<span[^>]*itemprop=\"price\"[^>]*>([^<]+)/i);\n  if (priceMatch) product.price = priceMatch[1].trim();\n\n  // Extract Original Price (if on sale)\n  const originalPriceMatch = html.match(/Was\\s*\\$([0-9,.]+)/i);\n  if (originalPriceMatch) product.originalPrice = `$${originalPriceMatch[1]}`;\n\n  // Extract Sizes with individual prices\n  const sizeMatches = [...html.matchAll(/variant-tile-price-text-([^\"]+)\"[^>]*>\\$([0-9,.]+)/g)];\n  sizeMatches.forEach(([, size, price]) => {\n    product.sizes.push({ size: size.trim(), price: `$${price}` });\n  });\n\n  // Extract Colors\n  const colorMatches = [...html.matchAll(/aria-label=\"([^\"]+)\"[^>]*role=\"img\"/g)];\n  colorMatches.forEach(([, color]) => {\n    product.colors.push({ color: color.trim() });\n  });\n\n  // Extract Description\n  const descStart = html.indexOf('<ul>', html.indexOf('About this item'));\n  if (descStart !== -1) {\n    const descEnd = html.indexOf('</ul>', descStart);\n    if (descEnd !== -1) {\n      product.description = html.substring(descStart, descEnd)\n        .replace(/<[^>]*>/g, ' ')\n        .replace(/\\s+/g, ' ')\n        .trim();\n    }\n  }\n\n  // Extract Product ID\n  const idMatch = html.match(/\\/ip\\/[^\\/]+\\/(\\d+)/);\n  if (idMatch) product.productId = idMatch[1];\n\n  return product;\n}\n\nfor (let i = 0; i < inputItems.length; i++) {\n  const htmlContent = inputItems[i].json.data;\n  if (htmlContent && typeof htmlContent === 'string') {\n    const productData = extractProductData(htmlContent);\n    productData.scraped_at = new Date().toISOString();\n    if (productData.name) {\n      allProducts.push({ json: productData });\n    }\n  }\n}\n\nreturn allProducts.length > 0 ? allProducts : [{ json: { error: 'No products parsed' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        1296
+      ],
+      "id": "aadd74c3-d98f-49c7-be0d-7fa3a7ea3355",
+      "name": "Parse Walmart Product1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Walmart Collection URLs - split into individual items\nconst walmartCollectionUrls = $input.first().json.walmartCollectionUrls || [];\n\nif (walmartCollectionUrls.length === 0) {\n  return [];\n}\n\nreturn walmartCollectionUrls.map(url => ({ json: { url, type: 'walmart_collection' } }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -512,
+        1632
+      ],
+      "id": "48695314-2244-4021-ba3e-28f235413120",
+      "name": "Process Walmart Collections"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9d49c0dc-4921-4ae8-b7de-0846ed90a9fa",
+              "leftValue": "={{ $json.url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -304,
+        1632
+      ],
+      "id": "22b157e6-0a62-47e3-90b3-f1899d321084",
+      "name": "Has Walmart Collection URL?"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 70000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        112,
+        1616
+      ],
+      "id": "2fb96e2e-23ad-43f1-be21-5fb7cde0a62b",
+      "name": "Fetch Walmart Collection"
+    },
+    {
+      "parameters": {
+        "jsCode": "const cheerio = require('cheerio');\nconst results = [];\nconst seen = new Set();\n\nconst html = $input.first().json.data || '';\nif (!html) return [{ json: { url: null, type: 'no_html' } }];\n\nconst $ = cheerio.load(html);\n\n// Selector ladder — tries most specific first, falls back to broadest\nconst selectors = [\n  'div[data-testid=\"list-view\"] a[href*=\"/ip/\"]',           // original\n  'div[data-testid=\"search-result-listview-container\"] a[href*=\"/ip/\"]',\n  'div[data-testid=\"item-stack\"] a[href*=\"/ip/\"]',\n  '[data-testid=\"list-view-item\"] a[href*=\"/ip/\"]',\n  'section[data-automation-id=\"product-list\"] a[href*=\"/ip/\"]',\n  'a[href*=\"/ip/\"][href*=\"walmart.com\"]',                   // broader match\n  'a[href*=\"/ip/\"]'                                         // broadest fallback\n];\n\nlet matched = false;\nfor (const sel of selectors) {\n  $(sel).each((i, el) => {\n    const url = $(el).attr('href');\n    if (url) {\n      const fullUrl = url.startsWith('http')\n        ? url\n        : `https://www.walmart.com${url}`;\n      // Exclude non-product links that contain /ip/ in unrelated paths\n      if (fullUrl.includes('walmart.com/ip/') && !seen.has(fullUrl)) {\n        seen.add(fullUrl);\n        results.push({ url: fullUrl, matchedSelector: sel });\n      }\n    }\n  });\n  if (results.length > 0) {\n    matched = true;\n    break; // stop at first selector that finds products\n  }\n}\n\nconst limited = results.slice(0, 5); // reduced to 5 to conserve credits\n\nif (limited.length === 0) {\n  return [{ json: { url: null, type: 'no_products_found', matchedSelector: 'none' } }];\n}\n\nreturn limited.map(r => ({ json: r }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        368,
+        1632
+      ],
+      "id": "a02360bc-70a2-47c5-a8f9-4aa2d060d051",
+      "name": "Extract Walmart Links"
+    },
+    {
+      "parameters": {
+        "amount": 1.5
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        576,
+        1504
+      ],
+      "id": "b1f65e76-4999-4829-9904-7015671830e9",
+      "name": "Wait Walmart Collection",
+      "webhookId": "b57fedef-906d-4623-aef4-56fc7c67220c"
+    },
+    {
+      "parameters": {
+        "url": "={{$json.url}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 70000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        800,
+        1536
+      ],
+      "id": "ab5ec610-900e-408f-a76c-2a98a2a78f54",
+      "name": "Fetch Walmart Product4"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Walmart Product Data\nconst inputItems = $input.all();\nconst allProducts = [];\n\nfunction extractProductData(html) {\n  const product = {\n    name: null,\n    price: null,\n    originalPrice: null,\n    sizes: [],\n    colors: [],\n    description: null,\n    productId: null,\n    source: 'walmart'\n  };\n\n  // Extract Product Name\n  const nameMatch = html.match(/<h1[^>]*id=\"main-title\"[^>]*>([^<]+)/i);\n  if (nameMatch) product.name = nameMatch[1].trim();\n\n  // Extract Current Price\n  const priceMatch = html.match(/<span[^>]*itemprop=\"price\"[^>]*>([^<]+)/i);\n  if (priceMatch) product.price = priceMatch[1].trim();\n\n  // Extract Original Price (if on sale)\n  const originalPriceMatch = html.match(/Was\\s*\\$([0-9,.]+)/i);\n  if (originalPriceMatch) product.originalPrice = `$${originalPriceMatch[1]}`;\n\n  // Extract Sizes with individual prices\n  const sizeMatches = [...html.matchAll(/variant-tile-price-text-([^\"]+)\"[^>]*>\\$([0-9,.]+)/g)];\n  sizeMatches.forEach(([, size, price]) => {\n    product.sizes.push({ size: size.trim(), price: `$${price}` });\n  });\n\n  // Extract Colors\n  const colorMatches = [...html.matchAll(/aria-label=\"([^\"]+)\"[^>]*role=\"img\"/g)];\n  colorMatches.forEach(([, color]) => {\n    product.colors.push({ color: color.trim() });\n  });\n\n  // Extract Description\n  const descStart = html.indexOf('<ul>', html.indexOf('About this item'));\n  if (descStart !== -1) {\n    const descEnd = html.indexOf('</ul>', descStart);\n    if (descEnd !== -1) {\n      product.description = html.substring(descStart, descEnd)\n        .replace(/<[^>]*>/g, ' ')\n        .replace(/\\s+/g, ' ')\n        .trim();\n    }\n  }\n\n  // Extract Product ID\n  const idMatch = html.match(/\\/ip\\/[^\\/]+\\/(\\d+)/);\n  if (idMatch) product.productId = idMatch[1];\n\n  return product;\n}\n\nfor (let i = 0; i < inputItems.length; i++) {\n  const htmlContent = inputItems[i].json.data;\n  if (htmlContent && typeof htmlContent === 'string') {\n    const productData = extractProductData(htmlContent);\n    productData.scraped_at = new Date().toISOString();\n    if (productData.name) {\n      allProducts.push({ json: productData });\n    }\n  }\n}\n\nreturn allProducts.length > 0 ? allProducts : [{ json: { error: 'No products parsed' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        1536
+      ],
+      "id": "cdb1098e-6781-41cc-9616-3ce16b647dd0",
+      "name": "Parse Walmart Product4"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1392,
+        1360
+      ],
+      "id": "2de22cbf-d3ce-479d-9045-21b87c02d4d4",
+      "name": "Merge Walmart Results"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine all Walmart product data\nconst allItems = $input.all();\nlet allProducts = [];\n\nfor (const item of allItems) {\n  if (item.json.name) {\n    allProducts.push(item.json);\n  }\n}\n\n// Deduplicate by productId\nconst seen = new Set();\nconst uniqueProducts = allProducts.filter(p => {\n  if (!p.productId || seen.has(p.productId)) return false;\n  seen.add(p.productId);\n  return true;\n});\n\nreturn [{\n  json: {\n    walmartProducts: uniqueProducts,\n    totalProducts: uniqueProducts.length,\n    scrapedAt: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1648,
+        1376
+      ],
+      "id": "888d72c3-4963-4e2a-bb7e-9e99d40c4463",
+      "name": "Combine Walmart Products"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cc991fb0-c5e0-44dd-a3be-88a72b90b643",
+              "leftValue": "={{ $json.url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        944,
+        1792
+      ],
+      "id": "4fbb7888-03ef-4a91-8006-1ddd7e5be588",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -48,
+        1504
+      ],
+      "id": "7fc395d4-b5c8-4fc7-a606-83113a1c7813",
+      "name": "Wait Walmart Collection4",
+      "webhookId": "3b84ed11-8114-4397-a5f6-55d11ef0381e"
+    },
+    {
+      "parameters": {
+        "jsCode": "// SCOPE GENERATOR - No AI, just JavaScript\n// Generates Section 2: Scope of Research\n\nconst wayfairData = $('Code').first().json;\nconst amazonData = $('Combine Amazon Products1').first().json;\nlet walmartData = {};\ntry { walmartData = $('Combine Walmart Products').first().json || {}; } catch(e) {}\nconst inputData = $('Input Parser').first().json;\n\nconst category = inputData.categoryDisplayName || 'Rugs';\nconst amazonProductCount = amazonData.amazonProducts?.length || amazonData.totalProducts || 0;\nconst wayfairProductCount = wayfairData.wayfair_products?.length || 0;\nconst walmartProductCount = walmartData.walmartProducts?.length || walmartData.totalProducts || 0;\n\nconst scopeHtml = `\n<section class=\"scope-section\">\n  <h2>Scope of Research</h2>\n  <div class=\"scope-grid\">\n    <div class=\"scope-card\">\n      <h4>Category Analyzed</h4>\n      <p class=\"scope-value\">${category}</p>\n    </div>\n    <div class=\"scope-card\">\n      <h4>Competitors Reviewed</h4>\n      <ul>\n        <li><strong>Amazon</strong> - ${amazonProductCount} products analyzed</li>\n        <li><strong>Walmart</strong> - ${walmartProductCount} products analyzed</li>\n        <li><strong>Wayfair</strong> - ${wayfairProductCount} products (baseline)</li>\n      </ul>\n    </div>\n    <div class=\"scope-card\">\n      <h4>Data Sources</h4>\n      <ul>\n        <li>Product listings & pricing</li>\n        <li>Customer reviews & ratings</li>\n        <li>Product features & specifications</li>\n      </ul>\n    </div>\n    <div class=\"scope-card\">\n      <h4>Report Generated</h4>\n      <p class=\"scope-value\">${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>\n    </div>\n  </div>\n</section>\n`;\n\nreturn [{\n  json: {\n    section: 'scope',\n    html: scopeHtml,\n    metadata: {\n      category,\n      amazonProductCount,\n      walmartProductCount,\n      wayfairProductCount,\n      generatedAt: new Date().toISOString()\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3376,
+        464
+      ],
+      "id": "2398b480-02db-4dda-a8e9-40e1ecc514e9",
+      "name": "Scope Generator"
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3600,
+        464
+      ],
+      "id": "922e5717-1d86-47e6-be36-e9524c2ffcd2",
+      "name": "Wait After Scope",
+      "webhookId": "3346fd02-7de3-412b-9f51-d7f6e20a8f27"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        3808,
+        672
+      ],
+      "id": "544ba14d-70c2-41b0-b05c-ac0454348e59",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "w5QlsCuZZVsW3hIK",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=CATEGORY: {{ $('Input Parser').first().json.categoryDisplayName }}\n\nWAYFAIR PRODUCTS:\n{{ JSON.stringify($('Code').first().json.wayfair_products?.slice(0, 10), null, 2) }}\n\nAMAZON COMPETITOR DATA:\n{{ JSON.stringify($('Combine Amazon Products1').first().json.amazonProducts?.slice(0, 10), null, 2) }}\n\nWALMART COMPETITOR DATA:\n{{ JSON.stringify($('Combine Walmart Products').first().json.walmartProducts?.slice(0, 10), null, 2) }}",
+        "options": {
+          "systemMessage": "You are a senior competitive analyst writing an Executive Summary for Wayfair's strategy team.\n\nTASK: Write a compelling Executive Summary comparing Wayfair vs Amazon and Walmart in this rug category.\n\nREQUIREMENTS:\n1. Lead with the single most important competitive insight\n2. Include 5-6 key bullet points covering:\n   - Price positioning (Wayfair vs Amazon vs Walmart)\n   - Product assortment differences across all three\n   - Rating/review comparison\n   - Key competitive advantage for Wayfair\n   - Walmart-specific opportunities or threats\n   - Main strategic opportunity\n3. Add a \"Strategic Implications\" paragraph (2-3 sentences)\n\nOUTPUT FORMAT (HTML only, no markdown):\n<section class=\"executive-summary\">\n  <h2>Executive Summary</h2>\n  <div class=\"summary-hero\">\n    <div class=\"key-insight\">\n      <span class=\"label\">Key Competitive Insight</span>\n      <p>[Single most important finding about Wayfair vs Amazon vs Walmart]</p>\n    </div>\n  </div>\n  <div class=\"summary-points\">\n    <h3>Key Findings</h3>\n    <ul>\n      <li><strong>[Topic]:</strong> [Insight]</li>\n    </ul>\n  </div>\n  <div class=\"strategic-implications\">\n    <h3>Strategic Implications</h3>\n    <p>[What this means for Wayfair's strategy]</p>\n  </div>\n</section>"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        3808,
+        464
+      ],
+      "id": "784f59ee-a391-47fb-8846-0e1ce18c8039",
+      "name": "Executive Summary Generator"
+    },
+    {
+      "parameters": {
+        "amount": 30
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        4160,
+        464
+      ],
+      "id": "5a0fc20d-bee9-4837-9247-f260a116204d",
+      "name": "Wait After Executive",
+      "webhookId": "2782a79e-3ffa-4ffc-91c2-9c9cddb4326b"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "= CATEGORY: {{ $('Input Parser').first().json.categoryDisplayName }}\n\nAMAZON PRODUCTS:\n{{ JSON.stringify($('Combine Amazon Products1').first().json.amazonProducts?.slice(0, 15), null, 2) }}\n\nWALMART PRODUCTS:\n{{ JSON.stringify($('Combine Walmart Products').first().json.walmartProducts?.slice(0, 15), null, 2) }}",
+        "options": {
+          "systemMessage": "You are a marketplace analyst. Analyze Amazon and Walmart competitor products.\n\n  TASK: Create a Competitor Analysis section covering BOTH Amazon AND Walmart with clickable product links.\n\n  IMPORTANT: When listing products in tables, wrap product names in anchor tags using their URL:\n  <a href=\"[product_url]\">[Product Name]</a>\n\n  INCLUDE:\n  1. Amazon Analysis:\n     - Product count, price range, avg rating\n     - Top 3 performers WITH clickable links to their URLs\n     - Common features\n  2. Walmart Analysis:\n     - Product count, price range\n     - Top 3 performers WITH clickable links to their URLs\n     - Size/color variety\n  3. Cross-Competitor Comparison\n     - Which competitor has better pricing\n     - Which has more variety\n     - Key differentiators\n\n  OUTPUT FORMAT (HTML only, no markdown):\n  <section class=\"competitor-analysis\">\n    <h2>Competitor Analysis</h2>\n\n    <div class=\"amazon-section\">\n      <h3>Amazon Overview</h3>\n      <div class=\"stats-grid\">\n        <div class=\"stat-card\">\n          <span class=\"stat-value\">[Count]</span>\n          <span class=\"stat-label\">Products Analyzed</span>\n        </div>\n        <div class=\"stat-card\">\n          <span class=\"stat-value\">[Min] - [Max]</span>\n          <span class=\"stat-label\">Price Range</span>\n        </div>\n        <div class=\"stat-card\">\n          <span class=\"stat-value\">[Avg]/5</span>\n          <span class=\"stat-label\">Avg Rating</span>\n        </div>\n      </div>\n      <div class=\"top-performers\">\n        <h4>Top Amazon Products</h4>\n        <table class=\"data-table\">\n          <thead><tr><th>Product</th><th>Price</th><th>Rating</th></tr></thead>\n          <tbody>\n            <tr>\n              <td><a href=\"[full_amazon_url]\">[Product Name - shortened if needed]</a></td>\n              <td>[Price]</td>\n              <td>[Rating] ([Review Count])</td>\n            </tr>\n            <tr>\n              <td><a href=\"[full_amazon_url]\">[Product Name]</a></td>\n              <td>[Price]</td>\n              <td>[Rating] ([Review Count])</td>\n            </tr>\n            <tr>\n              <td><a href=\"[full_amazon_url]\">[Product Name]</a></td>\n              <td>[Price]</td>\n              <td>[Rating] ([Review Count])</td>\n            </tr>\n          </tbody>\n        </table>\n      </div>\n      <div class=\"common-features\">\n        <h4>Common Features</h4>\n        <ul>\n          <li>[Feature 1]</li>\n          <li>[Feature 2]</li>\n          <li>[Feature 3]</li>\n          <li>[Feature 4]</li>\n        </ul>\n      </div>\n    </div>\n\n    <div class=\"walmart-section\">\n      <h3>Walmart Overview</h3>\n      <div class=\"stats-grid\">\n        <div class=\"stat-card\">\n          <span class=\"stat-value\">[Count]</span>\n          <span class=\"stat-label\">Products Analyzed</span>\n        </div>\n        <div class=\"stat-card\">\n          <span class=\"stat-value\">[Min] - [Max]</span>\n          <span class=\"stat-label\">Price Range</span>\n        </div>\n      </div>\n      <div class=\"top-performers\">\n        <h4>Top Walmart Products</h4>\n        <table class=\"data-table\">\n          <thead><tr><th>Product</th><th>Price</th><th>Sizes Available</th></tr></thead>\n          <tbody>\n            <tr>\n              <td><a href=\"[full_walmart_url]\">[Product Name]</a></td>\n              <td>[Price]</td>\n              <td>[Size options or count]</td>\n            </tr>\n            <tr>\n              <td><a href=\"[full_walmart_url]\">[Product Name]</a></td>\n              <td>[Price]</td>\n              <td>[Size options]</td>\n            </tr>\n            <tr>\n              <td><a href=\"[full_walmart_url]\">[Product Name]</a></td>\n              <td>[Price]</td>\n              <td>[Size options]</td>\n            </tr>\n          </tbody>\n        </table>\n      </div>\n      <div class=\"variety\">\n        <h4>Size/Color Variety</h4>\n        <ul>\n          <li><strong>Sizes:</strong> [Range description]</li>\n          <li><strong>Colors:</strong> [Count and types]</li>\n          <li><strong>Brands:</strong> [List main brands]</li>\n        </ul>\n      </div>\n    </div>\n\n    <div class=\"cross-comparison\">\n      <h3>Cross-Competitor Insights</h3>\n      <ul>\n        <li><strong>Pricing:</strong> [Which competitor wins on price and why]</li>\n        <li><strong>Variety:</strong> [Which has better selection]</li>\n        <li><strong>Key Differentiators:</strong> [What makes each unique]</li>\n        <li><strong>Target Audience:</strong> [Who each competitor serves best]</li>\n      </ul>\n    </div>\n  </section>\n\n  CRITICAL:\n  - Extract actual URLs from the product data and use them in href attributes\n  - Use the full URL (https://www.amazon.com/... or https://www.walmart.com/...)\n  - If URL is not available, just use the product name without a link\n  - Truncate long product names to ~50 characters for readability"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        4400,
+        464
+      ],
+      "id": "ff42778e-8ab6-4d6c-a74c-3df18acb1900",
+      "name": "Amazon Analysis Generator"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine all Amazon product data\nconst allItems = $input.all();\nlet allProducts = [];\n\nfor (const item of allItems) {\n  if (item.json.products && Array.isArray(item.json.products)) {\n    allProducts = allProducts.concat(item.json.products);\n  }\n}\n\n// Deduplicate by URL\nconst seen = new Set();\nconst uniqueProducts = allProducts.filter(p => {\n  if (seen.has(p.url)) return false;\n  seen.add(p.url);\n  return true;\n});\n\nreturn [{\n  json: {\n    amazonProducts: uniqueProducts,\n    totalProducts: uniqueProducts.length,\n    scrapedAt: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2720,
+        -16
+      ],
+      "id": "a7e86f72-6aad-4b57-afaf-8b6962dcd7a6",
+      "name": "Combine Amazon Products1"
+    },
+    {
+      "parameters": {
+        "model": "mistral-large-latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatMistralCloud",
+      "typeVersion": 1,
+      "position": [
+        4400,
+        672
+      ],
+      "id": "f7488246-a37c-4f09-bb77-99f6740f03ae",
+      "name": "Mistral Cloud Chat Model",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "U1gFhxyUOwVw7vIC",
+          "name": "Mistral Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        4752,
+        464
+      ],
+      "id": "e9cc695f-069a-4e48-9375-97d2144d3c7b",
+      "name": "Wait After Amazon",
+      "webhookId": "5249b324-9024-4398-bca1-d7aec9bffebb"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        4960,
+        672
+      ],
+      "id": "247d83eb-f2db-4972-94c0-3e9e846e2186",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "w5QlsCuZZVsW3hIK",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        5312,
+        464
+      ],
+      "id": "7fae7be2-bee2-4edf-a35f-5169e6eb21cd",
+      "name": "Wait After Comparison",
+      "webhookId": "fce1c35d-6dcd-477e-b27a-3853c50b8e6b"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        5520,
+        672
+      ],
+      "id": "bff265dc-fdcc-4915-b68e-814b9ee5dda1",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "w5QlsCuZZVsW3hIK",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=CATEGORY: {{ $('Input Parser').first().json.categoryDisplayName }}\n\nWAYFAIR PRODUCTS (prices):\n{{ JSON.stringify($('Code').first().json.wayfair_products?.map(p => ({ title: p.title, price: p.price, list_price: p.list_price, discount: p.discount_percent })).slice(0, 15), null, 2) }}\n\nAMAZON PRODUCTS (prices):\n{{ JSON.stringify($('Combine Amazon Products1').first().json.amazonProducts?.map(p => ({ name: p.name, price: p.price })).slice(0, 15), null, 2) }}\n\nWALMART PRODUCTS (prices):\n{{ JSON.stringify($('Combine Walmart Products').first().json.walmartProducts?.map(p => ({ name: p.name, price: p.price, originalPrice: p.originalPrice, sizes: p.sizes })).slice(0, 15), null, 2) }}",
+        "options": {
+          "systemMessage": "You are a pricing strategist. Analyze pricing across Wayfair, Amazon, and Walmart.\n\nTASK: Create Pricing Insights & Whitespace Analysis with visual elements.\n\n  ANALYZE:\n  1. Price band distribution per competitor (budget <$100, mid $100-300, premium $300+)\n  2. Count products in each band for each retailer\n  3. Discount strategies across retailers\n  4. Price gaps and underserved segments\n  5. Whitespace opportunities (prioritized as High/Medium/Low)\n\n  OUTPUT FORMAT (HTML only, no markdown):\n  <section class=\"pricing-whitespace\">\n    <h2>Pricing Insights</h2>\n\n    <div class=\"price-bands\">\n      <h3>Price Distribution by Retailer</h3>\n      <div class=\"band-chart\">\n        <div class=\"band budget\">\n          <span>Budget (&lt;$100)</span>\n          <span>W: [X] | A: [Y] | Wm: [Z]</span>\n        </div>\n        <div class=\"band mid\">\n          <span>Mid ($100-$300)</span>\n          <span>W: [X] | A: [Y] | Wm: [Z]</span>\n        </div>\n        <div class=\"band premium\">\n          <span>Premium ($300+)</span>\n          <span>W: [X] | A: [Y] | Wm: [Z]</span>\n        </div>\n      </div>\n      <div class=\"insights\">\n        <p><strong>Analysis:</strong> [2-3 sentences about price distribution patterns]</p>\n      </div>\n    </div>\n\n    <div class=\"discount-strategies\">\n      <h3>Discount Strategies</h3>\n      <div class=\"discount-chart\">\n        <div class=\"discount-tier\"><span>No Discount</span><span>[X]</span></div>\n        <div class=\"discount-tier\"><span>1-30% Off</span><span>[X]</span></div>\n        <div class=\"discount-tier\"><span>31-50% Off</span><span>[X]</span></div>\n        <div class=\"discount-tier\"><span>50%+ Off</span><span>[X]</span></div>\n      </div>\n      <div class=\"insights\">\n        <p><strong>Key Insight:</strong> [Observation about discount strategies by retailer]</p>\n      </div>\n    </div>\n\n    <h2>Whitespace Analysis</h2>\n\n    <div class=\"whitespace-opportunities\">\n      <h3>Market Gaps & Opportunities</h3>\n      <div class=\"opportunity-cards\">\n        <div class=\"opportunity-card high-priority\">\n          <h4>🎯 [High Priority Opportunity Title]</h4>\n          <p>[Description of the gap - what price range, what's missing, why it matters]</p>\n          <span class=\"priority\">High Priority</span>\n          <div class=\"rationale\"><p><strong>Why?</strong> [Brief justification]</p></div>\n        </div>\n        <div class=\"opportunity-card high-priority\">\n          <h4>🎯 [Another High Priority Opportunity]</h4>\n          <p>[Description]</p>\n          <span class=\"priority\">High Priority</span>\n          <div class=\"rationale\"><p><strong>Why?</strong> [Brief justification]</p></div>\n        </div>\n        <div class=\"opportunity-card medium-priority\">\n          <h4>⚡ [Medium Priority Opportunity]</h4>\n          <p>[Description]</p>\n          <span class=\"priority\">Medium Priority</span>\n        </div>\n        <div class=\"opportunity-card low-priority\">\n          <h4>📊 [Low Priority Opportunity]</h4>\n          <p>[Description]</p>\n          <span class=\"priority\">Low Priority</span>\n        </div>\n      </div>\n    </div>\n\n    <div class=\"price-gaps\">\n      <h3>Price Gap Heatmap</h3>\n      <div class=\"heatmap\">\n        <div class=\"gap hot\"><span>$0-$50</span><span>🔥 High Competition (Amazon/Walmart)</span></div>\n        <div class=\"gap warm\"><span>$50-$100</span><span>⚠️ Moderate Competition</span></div>\n        <div class=\"gap moderate\"><span>$100-$200</span><span>⚠️ Discount-Heavy</span></div>\n        <div class=\"gap cool\"><span>$200-$400</span><span>🟢 Opportunity Zone</span></div>\n        <div class=\"gap open\"><span>$400+</span><span>🟢🟢 Wide Open</span></div>\n      </div>\n    </div>\n  </section>\n\n  IMPORTANT:\n  - Use actual product counts from the data for each price band\n  - Include 2-3 high priority, 1-2 medium priority, and 1 low priority opportunities\n  - Make the heatmap reflect actual competition levels based on the data\n  - Use emojis as shown (🎯, ⚡, 📊, 🔥, ⚠️, 🟢)\n  - W = Wayfair, A = Amazon, Wm = Walmart in the band chart"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        5520,
+        464
+      ],
+      "id": "8ec6daed-60e6-42ec-af14-9fe9e0aa504a",
+      "name": "Pricing & Whitespace Generator"
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        5936,
+        464
+      ],
+      "id": "ec763751-8053-4e8e-bb20-c159831069bd",
+      "name": "Wait After Pricing",
+      "webhookId": "4f4dce29-7e22-4454-935c-7e408bab0ca7"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        6144,
+        672
+      ],
+      "id": "167f7881-63c4-4676-a804-acda4e9f72a0",
+      "name": "Google Gemini Chat Model3",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "w5QlsCuZZVsW3hIK",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=CATEGORY: {{ $('Input Parser').first().json.categoryDisplayName }}\n\nEXECUTIVE SUMMARY:\n{{ $('Executive Summary Generator').first().json.output }}\n\nAMAZON ANALYSIS:\n{{ $('Amazon Analysis Generator').first().json.output }}\n\nCOMPARISON:\n{{ $('Comparison Generator').first().json.output }}\n\nPRICING & WHITESPACE:\n{{ $('Pricing & Whitespace Generator').first().json.output }}",
+        "options": {
+          "systemMessage": "You are a senior strategy consultant. Based on all the analysis of Wayfair vs Amazon vs Walmart, provide actionable recommendations.\n\n  TASK: Create Strategic Recommendations with clear prioritization and visual hierarchy.\n\n  PROVIDE:\n  1. 2-3 Quick Wins (immediate actions, high impact)\n  2. 3-4 Strategic Initiatives (longer-term plays)\n  3. Each recommendation needs: title, description, priority level, expected impact\n  4. At least one recommendation should specifically address Walmart competition\n  5. At least one recommendation should specifically address Amazon competition\n\n  OUTPUT FORMAT (HTML only, no markdown):\n  <section class=\"recommendations\">\n    <h2>Strategic Recommendations</h2>\n\n    <div class=\"quick-wins\">\n      <h3>🚀 Quick Wins (Immediate Actions)</h3>\n      <div class=\"rec-cards\">\n        <div class=\"rec-card priority-high\">\n          <h4>1. [Recommendation Title]</h4>\n          <p>[Detailed description - 2-3 sentences explaining what to do and why. Mention which competitor this addresses (Amazon/Walmart/Both).]</p>\n          <div class=\"rec-meta\">\n            <span class=\"priority\">High Priority</span>\n            <span class=\"impact\">Impact: High</span>\n          </div>\n        </div>\n        <div class=\"rec-card priority-high\">\n          <h4>2. [Recommendation Title]</h4>\n          <p>[Detailed description addressing specific competitor threat or opportunity.]</p>\n          <div class=\"rec-meta\">\n            <span class=\"priority\">High Priority</span>\n            <span class=\"impact\">Impact: High</span>\n          </div>\n        </div>\n      </div>\n    </div>\n\n    <div class=\"strategic-plays\">\n      <h3>📊 Strategic Initiatives</h3>\n      <div class=\"rec-cards\">\n        <div class=\"rec-card priority-high\">\n          <h4>3. [Strategic Initiative Title]</h4>\n          <p>[Longer description - explain the strategy, which competitor gap it exploits, and expected outcomes.]</p>\n          <div class=\"rec-meta\">\n            <span class=\"priority\">High Priority</span>\n            <span class=\"impact\">Impact: High</span>\n          </div>\n        </div>\n        <div class=\"rec-card priority-medium\">\n          <h4>4. [Strategic Initiative Title]</h4>\n          <p>[Description of medium-priority initiative.]</p>\n          <div class=\"rec-meta\">\n            <span class=\"priority\">Medium Priority</span>\n            <span class=\"impact\">Impact: Medium</span>\n          </div>\n        </div>\n        <div class=\"rec-card priority-medium\">\n          <h4>5. [Strategic Initiative Title]</h4>\n          <p>[Description - could be about differentiation, new product lines, or market positioning.]</p>\n          <div class=\"rec-meta\">\n            <span class=\"priority\">Medium Priority</span>\n            <span class=\"impact\">Impact: Medium</span>\n          </div>\n        </div>\n        <div class=\"rec-card priority-low\">\n          <h4>6. [Lower Priority Initiative]</h4>\n          <p>[Description of a nice-to-have or longer-term exploration.]</p>\n          <div class=\"rec-meta\">\n            <span class=\"priority\">Low Priority</span>\n            <span class=\"impact\">Impact: Medium</span>\n          </div>\n        </div>\n      </div>\n    </div>\n  </section>\n\n  PRIORITY GUIDELINES:\n  - priority-high: Urgent, addresses immediate competitive threat, high ROI\n  - priority-medium: Important but not urgent, builds long-term advantage\n  - priority-low: Nice to have, exploratory, or requires more research\n\n  CONTENT GUIDELINES:\n  - Be specific - reference actual findings from the analysis\n  - Mention specific competitors by name (Amazon, Walmart)\n  - Reference specific price points or product gaps identified\n  - Include actionable next steps, not vague suggestions\n  - Each recommendation should tie back to data from earlier sections\n\n  EXAMPLES OF GOOD RECOMMENDATIONS:\n  - \"Launch a $80-$150 'Value Plus' line to compete with Walmart's large-format rugs\"\n  - \"Expand machine-washable selection to counter Amazon's Soalmost success\"\n  - \"Create 'Designer Picks' collections to differentiate from Amazon's Ophanie dominance\""
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        6144,
+        464
+      ],
+      "id": "1f886c94-0c80-4862-932d-42981212d25c",
+      "name": "Recommendations Generator"
+    },
+    {
+      "parameters": {
+        "content": "## System Message generates:\n\n**2-3 Quick wins (immediate actions)**\n**3-4 Strategic Intiatives (longer-term)**\n**Each with priority level and expected impact**\n ",
+        "height": 176,
+        "width": 320,
+        "color": "#FFFFFF"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        6176,
+        208
+      ],
+      "typeVersion": 1,
+      "id": "d34560a6-74dc-48e2-ac10-cd7c8916c19b",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        6528,
+        464
+      ],
+      "id": "dc647a5a-8332-4af4-9792-321446cba841",
+      "name": "Wait",
+      "webhookId": "3a5117ca-f857-4580-b778-d9b0bb2b02d0"
+    },
+    {
+      "parameters": {
+        "model": "mistral-large-latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatMistralCloud",
+      "typeVersion": 1,
+      "position": [
+        6736,
+        672
+      ],
+      "id": "a7cce079-86f7-49ee-8b0b-501e4cbebc00",
+      "name": "Mistral Cloud Chat Model1",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "U1gFhxyUOwVw7vIC",
+          "name": "Mistral Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Stage 6: Report Assembly\n**Assemble AI-powered sections into a complete HTML report** \n\n**Sections: Executive summary, Amazon Analysis, Comparison, Pricing & Whitespacing, Recommendations, Supplier Identification**\n",
+        "height": 704,
+        "width": 1120,
+        "color": "#FFC6E2"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        7360,
+        336
+      ],
+      "typeVersion": 1,
+      "id": "aaa5a8a4-a1b0-4142-82a8-c8c51be2f2ae",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "jsCode": "// HTML ASSEMBLER - Combines all sections into final report\n\nconst category = $('Input Parser').first().json.categoryDisplayName || 'Rugs';\nconst scopeHtml = $('Scope Generator').first().json.html || '';\nconst execSummary = $('Executive Summary Generator').first().json.output || '';\nconst amazonAnalysis = $('Amazon Analysis Generator').first().json.output || '';\nconst comparison = $('Comparison Generator').first().json.output || '';\nconst pricingWhitespace = $('Pricing & Whitespace Generator').first().json.output || '';\nconst recommendations = $('Recommendations Generator').first().json.output || '';\nconst supplierIdentification = $('Supplier Identification Generator').first().json.output || '';\n\nconst fullHtml = `<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Competitor Analysis Report - ${category}</title>\n  <link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap\" rel=\"stylesheet\">\n  <style>\n      :root {\n        --primary: #7C3AED;\n        --primary-light: #A78BFA;\n        --success: #059669;\n        --warning: #D97706;\n        --danger: #DC2626;\n        --gray-50: #F9FAFB;\n        --gray-100: #F3F4F6;\n        --gray-200: #E5E7EB;\n        --gray-500: #6B7280;\n        --gray-700: #374151;\n        --gray-900: #111827;\n      }\n      * { box-sizing: border-box; margin: 0; padding: 0; }\n      body {\n        font-family: 'Inter', -apple-system, sans-serif;\n        line-height: 1.6;\n        color: var(--gray-700);\n        background: var(--gray-50);\n        padding: 2rem;\n      }\n      .report-container {\n        max-width: 1200px;\n        margin: 0 auto;\n        background: white;\n        border-radius: 12px;\n        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);\n        overflow: hidden;\n      }\n      .report-header {\n        background: linear-gradient(135deg, var(--primary) 0%, #5B21B6 100%);\n        color: white;\n        padding: 3rem;\n        text-align: center;\n      }\n      .report-header h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 0.5rem; }\n      .report-header .subtitle { opacity: 0.9; font-size: 1.1rem; }\n      .report-content { padding: 2rem 3rem; }\n      section { margin-bottom: 3rem; padding-bottom: 2rem; border-bottom: 1px solid var(--gray-200); }\n      section:last-child { border-bottom: none; }\n      h2 { color: var(--gray-900); font-size: 1.75rem; font-weight: 600; margin-bottom: 1.5rem; padding-bottom: 0.5rem; border-bottom: 3px solid var(--primary); display: inline-block; }\n      h3 { color: var(--gray-700); font-size: 1.25rem; font-weight: 600; margin: 1.5rem 0 1rem; }\n      h4 { color: var(--gray-700); font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem; }\n\n      /* Scope & Stats Grid */\n      .scope-grid, .stats-grid, .profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin: 1rem 0; }\n      .scope-card, .stat-card, .profile-card {\n        background: var(--gray-50);\n        padding: 1.5rem;\n        border-radius: 8px;\n        border: 1px solid var(--gray-200);\n      }\n      .scope-value, .stat-value { font-size: 1.5rem; font-weight: 700; color: var(--primary); }\n      .stat-label { display: block; font-size: 0.875rem; color: var(--gray-500); margin-top: 0.25rem; }\n\n      /* Executive Summary */\n      .summary-hero { background: linear-gradient(135deg, #F3E8FF 0%, #E0E7FF 100%); padding: 2rem; border-radius: 12px; margin-bottom: 1.5rem; }\n      .key-insight .label { background: var(--primary); color: white; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }\n      .key-insight p { font-size: 1.25rem; font-weight: 500; color: var(--gray-900); margin-top: 1rem; }\n      .summary-points ul, .feature-analysis ul { list-style: none; }\n      .summary-points li, .feature-analysis li { padding: 0.75rem 0; border-bottom: 1px solid var(--gray-100); }\n\n      /* Data Tables */\n      .data-table, .comparison-table { width: 100%; border-collapse: collapse; margin: 1rem 0; }\n      .data-table th, .comparison-table th { background: var(--gray-100); padding: 1rem; text-align: left; font-weight: 600; }\n      .data-table td, .comparison-table td { padding: 1rem; border-bottom: 1px solid var(--gray-200); }\n      .data-table a { color: var(--primary); text-decoration: none; font-weight: 500; }\n      .data-table a:hover { text-decoration: underline; }\n\n      /* Winner Styling */\n      .winner { font-weight: 600; }\n      .winner-wayfair, td.winner:contains('Wayfair') { color: var(--success); }\n      .winner-amazon, td.winner:contains('Amazon') { color: var(--warning); }\n      .winner-walmart { color: #2563EB; }\n\n      /* Pricing Bands - Colored Bars */\n      .band-chart { display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap; }\n      .band {\n        flex: 1;\n        min-width: 150px;\n        padding: 20px 15px;\n        border-radius: 8px;\n        color: white;\n        text-align: center;\n        font-weight: bold;\n        box-shadow: 0 2px 4px rgba(0,0,0,0.1);\n      }\n      .band span { display: block; }\n      .band span:first-child { font-size: 0.9rem; margin-bottom: 8px; opacity: 0.9; }\n      .band span:last-child { font-size: 1.1rem; }\n      .band.budget { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }\n      .band.mid { background: linear-gradient(135deg, #f39c12 0%, #d68910 100%); }\n      .band.premium { background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%); }\n\n      /* Discount Tiers */\n      .discount-chart { display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap; }\n      .discount-tier {\n        flex: 1;\n        min-width: 120px;\n        padding: 15px;\n        background: var(--gray-100);\n        border-radius: 8px;\n        text-align: center;\n        border: 1px solid var(--gray-200);\n      }\n      .discount-tier span { display: block; }\n      .discount-tier span:first-child { font-size: 0.85rem; color: var(--gray-500); margin-bottom: 5px; }\n      .discount-tier span:last-child { font-size: 1.25rem; font-weight: 700; color: var(--primary); }\n\n      /* Opportunity Cards with Priority Colors */\n      .opportunity-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }\n      .opportunity-card, .rec-card {\n        background: white;\n        border: 1px solid var(--gray-200);\n        border-radius: 8px;\n        padding: 1.5rem;\n        margin-bottom: 1rem;\n        box-shadow: 0 2px 4px rgba(0,0,0,0.05);\n      }\n      .opportunity-card.high-priority { border-left: 4px solid #e74c3c; background-color: #fdf2f2; }\n      .opportunity-card.medium-priority { border-left: 4px solid #f39c12; background-color: #fffbf0; }\n      .opportunity-card.low-priority { border-left: 4px solid #3498db; background-color: #f0f7ff; }\n      .rec-card.priority-high { border-left: 4px solid #e74c3c; background-color: #fdf2f2; }\n      .rec-card.priority-medium { border-left: 4px solid #f39c12; background-color: #fffbf0; }\n      .rec-card.priority-low { border-left: 4px solid #3498db; background-color: #f0f7ff; }\n\n      /* Priority Badges */\n      .priority {\n        display: inline-block;\n        margin-top: 10px;\n        padding: 4px 12px;\n        border-radius: 20px;\n        font-size: 0.75rem;\n        font-weight: 600;\n        text-transform: uppercase;\n      }\n      .high-priority .priority, .priority-high .priority { background-color: #e74c3c; color: white; }\n      .medium-priority .priority, .priority-medium .priority { background-color: #f39c12; color: white; }\n      .low-priority .priority, .priority-low .priority { background-color: #3498db; color: white; }\n\n      /* Price Gap Heatmap */\n      .heatmap { margin-top: 20px; }\n      .gap {\n        display: flex;\n        justify-content: space-between;\n        align-items: center;\n        padding: 12px 16px;\n        margin: 8px 0;\n        border-radius: 6px;\n        font-weight: 500;\n      }\n      .gap span:last-child { font-weight: 600; }\n      .gap.hot { background-color: #fde8e8; color: #991b1b; }\n      .gap.warm { background-color: #fef3c7; color: #92400e; }\n      .gap.moderate { background-color: #fef9c3; color: #854d0e; }\n      .gap.cool { background-color: #d1fae5; color: #065f46; }\n      .gap.open { background-color: #d1fae5; color: #065f46; }\n\n      /* Recommendation Cards */\n      .rec-cards { display: grid; gap: 1rem; margin-top: 1rem; }\n      .rec-meta { display: flex; gap: 1rem; align-items: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--gray-100); }\n      .impact { color: var(--gray-500); font-size: 0.875rem; }\n\n      /* Insights Box */\n      .insights, .rationale {\n        background-color: var(--gray-50);\n        padding: 12px 16px;\n        border-radius: 6px;\n        margin-top: 12px;\n        font-size: 0.9rem;\n        border-left: 3px solid var(--primary-light);\n      }\n\n      /* Footer */\n      .report-footer { background: var(--gray-100); padding: 1.5rem 3rem; text-align: center; font-size: 0.875rem; color: var(--gray-500); }\n    </style>\n</head>\n<body>\n  <div class=\"report-container\">\n    <header class=\"report-header\">\n      <h1>Competitor Analysis Report</h1>\n      <p class=\"subtitle\">${category} - Wayfair vs Amazon vs Walmart</p>\n    </header>\n    <main class=\"report-content\">\n      ${execSummary}\n      ${scopeHtml}\n      ${amazonAnalysis}\n      ${comparison}\n      ${pricingWhitespace}\n      ${recommendations}\n      ${supplierIdentification}\n    </main>\n    <footer class=\"report-footer\">\n      <p>Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} | Wayfair Competitive Intelligence</p>\n    </footer>\n  </div>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    output: fullHtml,\n    sections: {\n      scope: !!scopeHtml,\n      executive: !!execSummary,\n      amazon: !!amazonAnalysis,\n      comparison: !!comparison,\n      pricing: !!pricingWhitespace,\n      recommendations: !!recommendations\n    },\n    generatedAt: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7408,
+        560
+      ],
+      "id": "57e02a74-9ccd-444e-bb90-018be98a55d6",
+      "name": "HTML Assembler"
+    },
+    {
+      "parameters": {
+        "jsCode": "// === INPUT: Raw LLM output (string) from previous node ===\nlet html = $input.first().json.output || \"\";\n\n// 1. Remove Markdown code fences\nhtml = html.replace(/```html|```/g, \"\").trim();\n\n// 2. Un-escape newlines / tabs / carriage returns and collapse excess whitespace\nhtml = html\n  .replace(/\\\\n/g, \"\\n\")\n  .replace(/\\\\t/g, \"\\t\")\n  .replace(/\\\\r/g, \"\")\n  .replace(/\\s{2,}/g, \" \")          // multiple spaces → one space\n  .replace(/\\n\\s*\\n/g, \"\\n\")        // blank lines → single newline\n  .trim();\n\n// 3. Remove any duplicate/malformed wrappers that the LLM might have added\nhtml = html\n  .replace(/<\\/?(html|body)>/gi, \"\")   // strip stray <html>/<body>\n  .replace(/<!DOCTYPE\\s+html?>/gi, \"\") // strip stray doctype\n  .trim();\n\n// 4. Ensure a **single** valid HTML5 skeleton\nif (!/<!DOCTYPE\\s+html/i.test(html)) {\n  html = \"<!DOCTYPE html>\\n\" + html;\n}\nif (!/<html[\\s>]/i.test(html)) {\n  html = html.replace(/^/, \"<html lang=\\\"en\\\">\\n\");\n}\nif (!/<body[\\s>]/i.test(html)) {\n  html = html.replace(/^(.*?)<html[^>]*>/i, \"$1<html lang=\\\"en\\\"><body>\\n\");\n  html += \"\\n</body>\";\n}\nif (!/<\\/html>/i.test(html)) {\n  html += \"\\n</html>\";\n}\n\n// 5. Light minify – keep all styles, just remove empty lines between tags\nhtml = html.replace(/>\\n\\s*</g, \"><\");\n\n// === OUTPUT: Clean, untouched-style HTML ===\nreturn [{\n  json: {\n    cleaned_html: html,                     // full readable HTML (preserves all CSS)\n    minified_html: html.replace(/\\s+/g, \" \"),// optional one-liner version\n    agent_id: 3,\n    debug: {\n      original_length: ($input.first().json.output || \"\").length,\n      cleaned_length: html.length,\n      fences_removed: true,\n      wrappers_fixed: true\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7616,
+        560
+      ],
+      "id": "d125bd02-53fe-43f5-b11a-2e6bb76dc70e",
+      "name": "Clean AI output"
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $input.first().json.minified_html;\nconst buffer = Buffer.from(text, 'utf8');\nconst binaryData = {\n  data: buffer.toString('base64'),\n  mimeType: 'application/octet-stream',\n  fileName: 'file.html',\n};\nitems[0].binary = { data: binaryData };\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7824,
+        560
+      ],
+      "id": "4717ec4a-fef5-46c3-9136-ca36d3134d86",
+      "name": "Download HTML file from here"
+    },
+    {
+      "parameters": {
+        "html": "{{ $json.cleaned_html }}"
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        8048,
+        560
+      ],
+      "id": "7d1e0e3f-ef6f-421c-bb46-ad25925e2054",
+      "name": "See HTML output here"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=CATEGORY: {{ $('Input Parser').first().json.categoryDisplayName }}\n\nWAYFAIR PRODUCTS:\n{{ JSON.stringify($('Code').first().json.wayfair_products?.slice(0, 10), null, 2) }}\n\nAMAZON PRODUCTS:\n{{ JSON.stringify($('Combine Amazon Products1').first().json.amazonProducts?.slice(0, 10), null, 2) }}\n\nWALMART PRODUCTS:\n{{ JSON.stringify($('Combine Walmart Products').first().json.walmartProducts?.slice(0, 10), null, 2) }}",
+        "options": {
+          "systemMessage": "You are a competitive intelligence analyst. Create a side-by-side comparison of Wayfair vs Amazon vs Walmart.\n\n  TASK: Create a comprehensive three-way Competitor Comparison table with clear winner indicators.\n\n  COMPARE THESE ATTRIBUTES:\n  1. Price Positioning (avg, min, max for each)\n  2. Product Variety/Count\n  3. Rating Distribution\n  4. Feature Highlights\n  5. Size/Color Options\n  6. Shipping/Delivery\n\n  OUTPUT FORMAT (HTML only, no markdown):\n  <section class=\"competitor-comparison\">\n    <h2>Side-by-Side Comparison</h2>\n    <table class=\"comparison-table\">\n      <thead>\n        <tr>\n          <th>Attribute</th>\n          <th>Wayfair</th>\n          <th>Amazon</th>\n          <th>Walmart</th>\n          <th>Winner</th>\n        </tr>\n      </thead>\n      <tbody>\n        <tr>\n          <td><strong>Price Positioning</strong></td>\n          <td>\n            Avg: $[X]<br>\n            Min: $[X]<br>\n            Max: $[X]\n          </td>\n          <td>\n            Avg: $[X]<br>\n            Min: $[X]<br>\n            Max: $[X]\n          </td>\n          <td>\n            Avg: $[X]<br>\n            Min: $[X]<br>\n            Max: $[X]\n          </td>\n          <td class=\"winner\"><span class=\"winner-badge [winner-class]\">[Winner Name]</span></td>\n        </tr>\n        <tr>\n          <td><strong>Product Variety</strong></td>\n          <td>\n            [X] products<br>\n            Brands: [list]<br>\n            Styles: [list]\n          </td>\n          <td>\n            [X] products<br>\n            Brands: [list]<br>\n            Styles: [list]\n          </td>\n          <td>\n            [X] products<br>\n            Brands: [list]<br>\n            Styles: [list]\n          </td>\n          <td class=\"winner\"><span class=\"winner-badge [winner-class]\">[Winner Name]</span></td>\n        </tr>\n        <tr>\n          <td><strong>Avg Rating</strong></td>\n          <td>[X] / 5 stars<br>([X] - [X] reviews)</td>\n          <td>[X] / 5 stars<br>([X] - [X] reviews)</td>\n          <td>[Data if available or \"N/A\"]</td>\n          <td class=\"winner\"><span class=\"winner-badge [winner-class]\">[Winner Name]</span></td>\n        </tr>\n        <tr>\n          <td><strong>Key Features</strong></td>\n          <td>\n            <ul>\n              <li>[Feature 1]</li>\n              <li>[Feature 2]</li>\n              <li>[Feature 3]</li>\n            </ul>\n          </td>\n          <td>\n            <ul>\n              <li>[Feature 1]</li>\n              <li>[Feature 2]</li>\n              <li>[Feature 3]</li>\n            </ul>\n          </td>\n          <td>\n            <ul>\n              <li>[Feature 1]</li>\n              <li>[Feature 2]</li>\n              <li>[Feature 3]</li>\n            </ul>\n          </td>\n          <td class=\"winner\"><span class=\"winner-badge [winner-class]\">[Winner or \"Tie\"]</span></td>\n        </tr>\n        <tr>\n          <td><strong>Size Options</strong></td>\n          <td>[Description of size range]</td>\n          <td>[Description of size range]</td>\n          <td>[Description of size range]</td>\n          <td class=\"winner\"><span class=\"winner-badge [winner-class]\">[Winner Name]</span></td>\n        </tr>\n        <tr>\n          <td><strong>Shipping</strong></td>\n          <td>[Shipping info]</td>\n          <td>[Shipping info]</td>\n          <td>[Shipping info]</td>\n          <td class=\"winner\"><span class=\"winner-badge [winner-class]\">[Winner Name]</span></td>\n        </tr>\n      </tbody>\n    </table>\n\n    <div class=\"comparison-insights\">\n      <h3>Key Takeaways</h3>\n      <ul>\n        <li><strong>Price Leader:</strong> [Who wins on price and why]</li>\n        <li><strong>Variety & Selection:</strong> [Who has the best assortment]</li>\n        <li><strong>Customer Confidence:</strong> [Rating/review insights]</li>\n        <li><strong>Practical Features:</strong> [Who offers best features]</li>\n        <li><strong>Shipping Convenience:</strong> [Delivery comparison]</li>\n        <li><strong>Overall:</strong> [Summary of who wins in what scenarios]</li>\n      </ul>\n    </div>\n  </section>\n\n  <style>\n  .winner-badge {\n    display: inline-block;\n    padding: 4px 12px;\n    border-radius: 20px;\n    font-weight: 600;\n    font-size: 0.85rem;\n  }\n  .winner-wayfair { background: #d1fae5; color: #065f46; }\n  .winner-amazon { background: #fef3c7; color: #92400e; }\n  .winner-walmart { background: #dbeafe; color: #1e40af; }\n  .winner-tie { background: #f3f4f6; color: #374151; }\n  </style>\n\n  WINNER CLASS RULES:\n  - If Wayfair wins: use class=\"winner-wayfair\"\n  - If Amazon wins: use class=\"winner-amazon\"\n  - If Walmart wins: use class=\"winner-walmart\"\n  - If Tie: use class=\"winner-tie\"\n\n  IMPORTANT:\n  - Calculate actual averages from the product data\n  - Be objective - pick winner based on data, not bias\n  - Use \"Tie\" when competitors are roughly equal\n  - Include the inline style block at the end for winner badges"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        4960,
+        464
+      ],
+      "id": "8ab7e008-f74b-4432-83c1-08da09a321fb",
+      "name": "Comparison Generator",
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "content": "## What It Does \n**Creates a detailed competitor analysis section covering both Amazon and Walmart.**",
+        "color": "#FFFFFF"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        4416,
+        240
+      ],
+      "id": "40412c41-2b47-49b9-8ce3-58cd3632bd8f",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "content": "## What It Does\n**Creates a side-by-side comparison table with “winner” badges for each attribute.** ",
+        "color": "#FFFFFF"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        4992,
+        240
+      ],
+      "id": "c4365127-4ca6-47b2-b641-7b60ffbc5ca9",
+      "name": "Sticky Note7"
+    },
+    {
+      "parameters": {
+        "content": "## What It Does\n**Analyzes pricing across all three competitors and identifies market gaps.**",
+        "color": "#FFFFFF"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        5536,
+        240
+      ],
+      "id": "d928cd42-27fe-44cc-9d1c-b6a27511cf14",
+      "name": "Sticky Note10"
+    },
+    {
+      "parameters": {
+        "content": "## What It Does\n**Identifies brands/suppliers from competitor data and finds sourcing opportunities.** ",
+        "height": 128,
+        "color": "#FFFFFF"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        6768,
+        256
+      ],
+      "id": "fcbe4fc1-a82e-499e-912e-d2677e8beb58",
+      "name": "Sticky Note11"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=CATEGORY: {{ $('Input Parser').first().json.categoryDisplayName }}\n\nAMAZON PRODUCTS:\n{{ JSON.stringify($('Combine Amazon Products1').first().json.amazonProducts?.map(p => ({ name: p.name, brand: p.brand, url: p.url, price: p.price })).slice(0, 15), null, 2) }}\n\n  WALMART PRODUCTS:\n  {{ JSON.stringify($('Combine Walmart Products').first().json.walmartProducts?.map(p => ({ name: p.name, brand: p.brand, url: p.url, price: p.price })).slice(0, 15), null, 2) }}\n\n  WAYFAIR PRODUCTS:\n  {{ JSON.stringify($('Code').first().json.wayfair_products?.map(p => ({ title: p.title, manufacturer: p.manufacturer })).slice(0, 15), null, 2) }}",
+        "options": {
+          "systemMessage": "You are a sourcing analyst specializing in home goods supply chain. Identify suppliers and brands from competitor product data.\n\n  TASK: Create a Supplier Identification & Sourcing Opportunities section.\n\n  ANALYZE THE DATA TO:\n  1. Extract all unique brand/supplier names from Amazon and Walmart products\n  2. Identify which brands are NOT currently on Wayfair\n  3. Note what each supplier is known for (style, price point, features)\n  4. Find sourcing opportunities for Wayfair\n\n  OUTPUT FORMAT (HTML only, no markdown):\n  <section class=\"supplier-identification\">\n    <h2>Supplier Identification & Sourcing Opportunities</h2>\n\n    <div class=\"suppliers-observed\">\n      <h3>Major Suppliers / Brands Observed</h3>\n      <table class=\"data-table\">\n        <thead>\n          <tr>\n            <th>Supplier / Brand</th>\n            <th>Platform</th>\n            <th>Known For</th>\n            <th>Price Range</th>\n            <th>Website</th>\n          </tr>\n        </thead>\n        <tbody>\n          <tr>\n            <td><strong>[Brand Name]</strong></td>\n            <td>[Amazon/Walmart/Both]</td>\n            <td>[Brief description - style, features, target market]</td>\n            <td>$[X] - $[Y]</td>\n            <td><a href=\"[url_if_known]\">[Website or \"Amazon Storefront\"]</a></td>\n          </tr>\n          <!-- Repeat for each major brand found (aim for 5-10 brands) -->\n        </tbody>\n      </table>\n    </div>\n\n    <div class=\"sourcing-opportunities\">\n      <h3>Sourcing Opportunities</h3>\n      <div class=\"opportunity-cards\">\n        <div class=\"opportunity-card high-priority\">\n          <h4>🎯 Brands Not Currently on Wayfair</h4>\n          <p>The following suppliers are active on Amazon/Walmart but appear absent from Wayfair's catalog:</p>\n          <ul>\n            <li><strong>[Brand]</strong> - [Why they'd be valuable: style, price point, reviews]</li>\n            <li><strong>[Brand]</strong> - [Why they'd be valuable]</li>\n            <li><strong>[Brand]</strong> - [Why they'd be valuable]</li>\n          </ul>\n          <span class=\"priority\">High Priority</span>\n        </div>\n\n        <div class=\"opportunity-card medium-priority\">\n          <h4>⚡ Style Gaps to Fill</h4>\n          <p>These suppliers offer styles or products that could fill gaps in Wayfair's assortment:</p>\n          <ul>\n            <li><strong>[Brand]</strong> specializes in [style] which Wayfair lacks depth in</li>\n            <li><strong>[Brand]</strong> offers [feature/style] at competitive price points</li>\n          </ul>\n          <span class=\"priority\">Medium Priority</span>\n        </div>\n\n        <div class=\"opportunity-card medium-priority\">\n          <h4>🏭 Private Label / Exclusive Candidates</h4>\n          <p>These suppliers may be suitable for private label partnerships or exclusive arrangements:</p>\n          <ul>\n            <li><strong>[Brand]</strong> - [Why: quality, price point, style alignment]</li>\n            <li><strong>[Brand]</strong> - [Why: manufacturing capability, unique features]</li>\n          </ul>\n          <span class=\"priority\">Medium Priority</span>\n        </div>\n      </div>\n    </div>\n\n    <div class=\"supplier-insights\">\n      <h3>Key Supplier Insights</h3>\n      <div class=\"insights\">\n        <ul>\n          <li><strong>Amazon Dominance:</strong> [Which brand dominates Amazon in this category and why]</li>\n          <li><strong>Walmart Focus:</strong> [What type of suppliers Walmart features]</li>\n          <li><strong>Price Point Gaps:</strong> [Where supplier opportunities exist by price]</li>\n          <li><strong>Emerging Brands:</strong> [Any newer brands showing strong reviews/traction]</li>\n        </ul>\n      </div>\n    </div>\n  </section>\n\n  BRAND IDENTIFICATION TIPS:\n  - Look for brand names in product titles (usually first word or after \"by\")\n  - Common Amazon rug brands: Ophanie, Rugs.com, Safavieh, nuLOOM, Unique Loom, Gorilla Grip, Lahome\n  - Common Walmart rug brands: Mainstays, Better Homes & Gardens, SAFAVIEH, Pentantan, My Texas House\n  - If brand website unknown, link to their Amazon/Walmart storefront or write \"Search Required\"\n\n  IMPORTANT:\n  - Only include brands you can actually identify from the product data\n  - Compare against Wayfair's manufacturer list to identify gaps\n  - Be realistic about private label candidates (smaller brands, quality products)\n  - Include at least 5 brands in the main table"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        6736,
+        464
+      ],
+      "id": "2e78c66b-f0cc-4c9b-acc1-d9be6d314947",
+      "name": "Supplier Identification Generator"
+    },
+    {
+      "parameters": {
+        "content": "## Stage 7: Upload to Google Drive\n\n",
+        "height": 640,
+        "width": 3200,
+        "color": "#FFBFDF"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        8112,
+        1056
+      ],
+      "id": "8096e653-61a5-4e2f-9605-f7f3d30166ee",
+      "name": "Sticky Note12"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "queryString": "Wayfair Reports",
+        "limit": 1,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        8192,
+        1248
+      ],
+      "id": "e679d713-a7ef-49e3-a666-cefc9062a12e",
+      "name": "Find Wayfair Reports",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "mrMRJtIEr7sYOIph",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Store root folder ID and pass along upload info\nconst rootFolderId = $input.first().json.id;\nconst downloadFile = $('Download HTML file from here').first();\nconst category = $('Input Parser').first().json.category || 'Unknown';\nconst binary = downloadFile.binary;\n\nconst today = new Date().toISOString().split('T')[0];\nconst safeCategory = category.replace(/\\\\s+/g, '_');\nconst fileName = `P3_Competitor_Report_${safeCategory}.html`;\n\nreturn [{\n  json: {\n    rootFolderId: rootFolderId,\n    category: category,\n    dateFolderName: today,\n    fileName: fileName\n  },\n  binary: binary\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8400,
+        1248
+      ],
+      "id": "c85b6666-5d55-43dc-a7c1-0e4dd07c6cc8",
+      "name": "Store Root ID"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "queryString": "={{ $json.category }}",
+        "limit": 1,
+        "filter": {
+          "folderId": {
+            "__rl": true,
+            "value": "={{ $json.rootFolderId }}",
+            "mode": "id"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        8608,
+        1248
+      ],
+      "id": "b86a3057-1d5d-4bcf-9a52-77bc348d1a42",
+      "name": "Find Category Folder1",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "mrMRJtIEr7sYOIph",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if category folder exists\nconst searchResult = $input.first().json;\nconst prevData = $('Store Root ID').first().json;\nconst binary = $('Store Root ID').first().binary;\n\nconst categoryExists = searchResult.id ? true : false;\n\nreturn [{\n  json: {\n    categoryExists: categoryExists,\n    categoryFolderId: searchResult.id || null,\n    rootFolderId: prevData.rootFolderId,\n    category: prevData.category,\n    dateFolderName: prevData.dateFolderName,\n    fileName: prevData.fileName\n  },\n  binary: binary\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8816,
+        1248
+      ],
+      "id": "0c8722c7-86be-405e-9058-48595dfef0f7",
+      "name": "Check Category"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "3072a789-f70e-4eb1-b649-99edf23a0d31",
+              "leftValue": "={{ $json.categoryExists }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        9024,
+        1248
+      ],
+      "id": "53addd56-b1f5-4e51-88f0-6eaa23c4c0db",
+      "name": "Category Exists?"
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "name": "={{ $json.category }}",
+        "driveId": {
+          "__rl": true,
+          "value": "MyDrive",
+          "mode": "id"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{ $json.rootFolderId }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        9296,
+        1120
+      ],
+      "id": "70e0ea86-b6ed-49fe-83d8-6e2ec63a647d",
+      "name": "Create Category",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "mrMRJtIEr7sYOIph",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge category folder results\nconst items = $input.all();\nlet categoryFolderId = null;\nlet category = '';\nlet dateFolderName = '';\nlet fileName = '';\nlet binary = null;\n\nfor (const item of items) {\n  const json = item.json;\n  \n  // From existing category (true branch)\n  if (json.categoryFolderId) {\n    categoryFolderId = json.categoryFolderId;\n  }\n  // From created category (false branch) \n  if (json.id && json.name) {\n    categoryFolderId = json.id;\n  }\n  \n  if (json.category) category = json.category;\n  if (json.dateFolderName) dateFolderName = json.dateFolderName;\n  if (json.fileName) fileName = json.fileName;\n  if (item.binary) binary = item.binary;\n}\n\n// Get from Check Category if needed\nif (!category || !dateFolderName || !fileName) {\n  const checkData = $('Check Category').first().json;\n  category = category || checkData.category;\n  dateFolderName = dateFolderName || checkData.dateFolderName;\n  fileName = fileName || checkData.fileName;\n}\nif (!binary) {\n  binary = $('Check Category').first().binary;\n}\n\nreturn [{\n  json: {\n    categoryFolderId,\n    category,\n    dateFolderName,\n    fileName\n  },\n  binary: binary\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        9584,
+        1264
+      ],
+      "id": "6ea6f3e2-df76-4532-952e-44f36607b109",
+      "name": "Merge Category"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "queryString": "={{ $json.dateFolderName }}",
+        "limit": 1,
+        "filter": {
+          "folderId": {
+            "__rl": true,
+            "value": "={{ $json.categoryFolderId }}",
+            "mode": "id"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        9792,
+        1264
+      ],
+      "id": "dadd8ec8-babf-494b-b53d-e263183cba5c",
+      "name": "Find Date Folder1",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "mrMRJtIEr7sYOIph",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if date folder exists\nconst searchResult = $input.first().json;\nconst prevData = $('Merge Category').first().json;\nconst binary = $('Merge Category').first().binary;\n\nconst dateExists = searchResult.id ? true : false;\n\nreturn [{\n  json: {\n    dateExists: dateExists,\n    dateFolderId: searchResult.id || null,\n    categoryFolderId: prevData.categoryFolderId,\n    dateFolderName: prevData.dateFolderName,\n    fileName: prevData.fileName\n  },\n  binary: binary\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        10032,
+        1264
+      ],
+      "id": "e35e7466-5d41-4978-b1b4-a1c1669aeeb9",
+      "name": "Check Date"
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "name": "={{ $json.dateFolderName }}",
+        "driveId": {
+          "__rl": true,
+          "value": "MyDrive",
+          "mode": "id"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{ $json.categoryFolderId }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        10480,
+        1136
+      ],
+      "id": "29b0f5bf-b79b-43d8-9519-cfe5c24285ec",
+      "name": "Create Date Folder1",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "mrMRJtIEr7sYOIph",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get date folder ID from either branch\nconst items = $input.all();\n\nlet dateFolderId = null;\nlet categoryName = '';\nlet dateFolderName = '';\n\nfor (const item of items) {\n  // From 'true' branch (date existed)\n  if (item.json.dateFolderId) {\n    dateFolderId = item.json.dateFolderId;\n    categoryName = item.json.categoryName;\n    dateFolderName = item.json.dateFolderName;\n  }\n  // From 'false' branch (date was created)\n  if (item.json.id && !item.json.dateExists) {\n    dateFolderId = item.json.id;\n    dateFolderName = item.json.name;\n  }\n}\n\n// Fallback\nif (!dateFolderId) {\n  const firstItem = items[0]?.json;\n  dateFolderId = firstItem?.id || firstItem?.dateFolderId;\n}\n\n// Get category name from Input Parser if needed\nif (!categoryName) {\n  categoryName = $('Input Parser').first().json.category || 'Unknown';\n}\nif (!dateFolderName) {\n  dateFolderName = new Date().toISOString().split('T')[0];\n}\n\n// Build filename\nconst safeCategory = categoryName.replace(/\\s+/g, '_');\nconst fileName = `P3_Competitor_Report_${safeCategory}.html`;\n\n// Get binary data from Download HTML file from Here\nconst binary = $('Download HTML file from here').first().binary;\n\nreturn [{\n  json: {\n    dateFolderId,\n    fileName,\n    categoryName,\n    dateFolderName\n  },\n  binary: binary\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        10768,
+        1248
+      ],
+      "id": "9883c955-343d-4c63-8414-515e2a80099d",
+      "name": "Merge Date"
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.fileName }}",
+        "driveId": {
+          "__rl": true,
+          "value": "MyDrive",
+          "mode": "id"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{ $json.dateFolderId }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        11024,
+        1248
+      ],
+      "id": "36800ac5-171e-4660-bf5c-308ae406b57c",
+      "name": "Upload to Drive",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "mrMRJtIEr7sYOIph",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "15a24600-cff8-4de1-b8ec-855599081ebd",
+              "leftValue": "={{ $json.dateExists }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        10208,
+        1232
+      ],
+      "id": "cca0323a-84a5-4c60-b91c-634644af6de3",
+      "name": "Date Exists?"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Input Parser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Parser": {
+      "main": [
+        [
+          {
+            "node": "Fetch Wayfair Rug Page",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Process Walmart Products",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Process Walmart Collections",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Collection List1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Direct Links1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Collection List1": {
+      "main": [
+        [
+          {
+            "node": "Is List Empty?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is List Empty?1": {
+      "main": [
+        [
+          {
+            "node": "Visit Aisle Page1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Visit Aisle Page1": {
+      "main": [
+        [
+          {
+            "node": "Extract Product Links1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Product Links1": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicate Links1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicate Links1": {
+      "main": [
+        [
+          {
+            "node": "Pause for Safety1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pause for Safety1": {
+      "main": [
+        [
+          {
+            "node": "Visit Product Page1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Visit Product Page1": {
+      "main": [
+        [
+          {
+            "node": "Read Item Details1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Item Details1": {
+      "main": [
+        [
+          {
+            "node": "Merge Amazon Products (Collection + Direct)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Direct Links1": {
+      "main": [
+        [
+          {
+            "node": "Do We Have Direct Links?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Do We Have Direct Links?1": {
+      "main": [
+        [
+          {
+            "node": "Visit Direct Product Page1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Visit Direct Product Page1": {
+      "main": [
+        [
+          {
+            "node": "Read Direct Item Details1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Direct Item Details1": {
+      "main": [
+        [
+          {
+            "node": "Merge Amazon Products (Collection + Direct)1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Amazon Products (Collection + Direct)1": {
+      "main": [
+        [
+          {
+            "node": "Combine Amazon Products1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Wayfair Rug Page": {
+      "main": [
+        [
+          {
+            "node": "Extract Rug Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Rug Products": {
+      "main": [
+        [
+          {
+            "node": "Filter Valid Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Valid Products": {
+      "main": [
+        [
+          {
+            "node": "Create Final JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Final JSON": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Walmart Products": {
+      "main": [
+        [
+          {
+            "node": "Has Walmart Product URL?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Walmart Product URL?": {
+      "main": [
+        [
+          {
+            "node": "Wait Walmart Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Walmart Product": {
+      "main": [
+        [
+          {
+            "node": "Fetch Walmart Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Walmart Product": {
+      "main": [
+        [
+          {
+            "node": "Parse Walmart Product1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Walmart Product1": {
+      "main": [
+        [
+          {
+            "node": "Merge Walmart Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Walmart Collections": {
+      "main": [
+        [
+          {
+            "node": "Has Walmart Collection URL?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Walmart Collection URL?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Walmart Collection",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait Walmart Collection4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Walmart Collection": {
+      "main": [
+        [
+          {
+            "node": "Extract Walmart Links",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Walmart Links": {
+      "main": [
+        [
+          {
+            "node": "Wait Walmart Collection",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Walmart Collection": {
+      "main": [
+        [
+          {
+            "node": "Fetch Walmart Product4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Walmart Product4": {
+      "main": [
+        [
+          {
+            "node": "Parse Walmart Product4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Walmart Product4": {
+      "main": [
+        [
+          {
+            "node": "Merge Walmart Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Walmart Results": {
+      "main": [
+        [
+          {
+            "node": "Combine Walmart Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Merge Walmart Results",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Wait Walmart Collection4": {
+      "main": [
+        [
+          {
+            "node": "Fetch Walmart Collection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Walmart Products": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Scope Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scope Generator": {
+      "main": [
+        [
+          {
+            "node": "Wait After Scope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait After Scope": {
+      "main": [
+        [
+          {
+            "node": "Executive Summary Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Executive Summary Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Executive Summary Generator": {
+      "main": [
+        [
+          {
+            "node": "Wait After Executive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait After Executive": {
+      "main": [
+        [
+          {
+            "node": "Amazon Analysis Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Amazon Products1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Mistral Cloud Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Amazon Analysis Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Amazon Analysis Generator": {
+      "main": [
+        [
+          {
+            "node": "Wait After Amazon",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait After Amazon": {
+      "main": [
+        [
+          {
+            "node": "Comparison Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Comparison Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait After Comparison": {
+      "main": [
+        [
+          {
+            "node": "Pricing & Whitespace Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Pricing & Whitespace Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pricing & Whitespace Generator": {
+      "main": [
+        [
+          {
+            "node": "Wait After Pricing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait After Pricing": {
+      "main": [
+        [
+          {
+            "node": "Recommendations Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Recommendations Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recommendations Generator": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Supplier Identification Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral Cloud Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Supplier Identification Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML Assembler": {
+      "main": [
+        [
+          {
+            "node": "Clean AI output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean AI output": {
+      "main": [
+        [
+          {
+            "node": "Download HTML file from here",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download HTML file from here": {
+      "main": [
+        [
+          {
+            "node": "See HTML output here",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Find Wayfair Reports",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Comparison Generator": {
+      "main": [
+        [
+          {
+            "node": "Wait After Comparison",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supplier Identification Generator": {
+      "main": [
+        [
+          {
+            "node": "HTML Assembler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Wayfair Reports": {
+      "main": [
+        [
+          {
+            "node": "Store Root ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Root ID": {
+      "main": [
+        [
+          {
+            "node": "Find Category Folder1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Category Folder1": {
+      "main": [
+        [
+          {
+            "node": "Check Category",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Category": {
+      "main": [
+        [
+          {
+            "node": "Category Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Category Exists?": {
+      "main": [
+        [
+          {
+            "node": "Create Category",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge Category",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Category": {
+      "main": [
+        [
+          {
+            "node": "Merge Category",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Category": {
+      "main": [
+        [
+          {
+            "node": "Find Date Folder1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Date Folder1": {
+      "main": [
+        [
+          {
+            "node": "Check Date",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Date": {
+      "main": [
+        [
+          {
+            "node": "Date Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Date": {
+      "main": [
+        [
+          {
+            "node": "Upload to Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Date Folder1": {
+      "main": [
+        [
+          {
+            "node": "Merge Date",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date Exists?": {
+      "main": [
+        [
+          {
+            "node": "Create Date Folder1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge Date",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "99acb189-4dd8-444e-9760-34b9b8d03224",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9c78978cf93cb0c82134d5e4ce0dbea67eeaf0014566c31d1477c6b51bf962db"
+  },
+  "id": "EUfVozLvNoO5vCUy",
+  "tags": []
+}
