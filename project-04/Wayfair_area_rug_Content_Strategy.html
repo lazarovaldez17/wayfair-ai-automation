@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Insights & Content Report | Wayfair area rug</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; background: #f8f9fa; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #7B2D8E 0%, #5E1A6E 100%); color: white; padding: 40px; border-radius: 12px; margin-bottom: 30px; }
+    .header h1 { font-size: 2.2em; margin-bottom: 10px; }
+    .header .subtitle { font-size: 1.2em; opacity: 0.9; }
+    .header .meta { margin-top: 20px; display: flex; gap: 15px; flex-wrap: wrap; }
+    .header .meta-item { background: rgba(255,255,255,0.15); padding: 8px 16px; border-radius: 20px; font-size: 0.9em; }
+    .section { background: white; border-radius: 12px; padding: 30px; margin-bottom: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .section h2 { color: #7B2D8E; font-size: 1.5em; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #f0e6f4; }
+    .section h3 { color: #5E1A6E; font-size: 1.2em; margin: 25px 0 15px 0; }
+    .section > p { color: #666; margin-bottom: 20px; }
+    .exec-summary { background: linear-gradient(135deg, #f8f4fa 0%, #fff 100%); border-left: 4px solid #7B2D8E; }
+    .exec-summary p { font-size: 1.05em; margin-bottom: 15px; white-space: pre-line; }
+    .no-data { color: #888; font-style: italic; padding: 10px; background: #f9f9f9; border-radius: 6px; }
+    .key-insights { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-top: 20px; }
+    .insight-card { background: white; border: 1px solid #e0d4e6; border-radius: 8px; padding: 20px; text-align: center; }
+    .insight-card .number { font-size: 2.2em; font-weight: bold; color: #7B2D8E; }
+    .insight-card .label { font-size: 0.85em; color: #666; margin-top: 5px; }
+    .insight-card .source { font-size: 0.75em; color: #aaa; margin-top: 3px; }
+    .data-sources { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .data-source-card { background: #f8f9fa; border-radius: 8px; padding: 20px; }
+    .data-source-card h4 { color: #7B2D8E; margin-bottom: 12px; }
+    .data-source-card ul { list-style: none; padding-left: 0; }
+    .data-source-card li { padding: 8px 0; border-bottom: 1px solid #e9ecef; font-size: 0.95em; }
+    .data-source-card li:last-child { border-bottom: none; }
+    /* Micro-Segment Cards */
+    .segment-card { border: 1px solid #e0d4e6; border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+    .segment-header { color: white; padding: 14px 20px; }
+    .segment-header .segment-tier { font-size: 0.72em; text-transform: uppercase; letter-spacing: 1px; opacity: 0.85; }
+    .segment-header h4 { font-size: 1.15em; margin-top: 4px; }
+    .segment-body { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+    .segment-col { padding: 18px 20px; border-right: 1px solid #f0e6f4; }
+    .segment-col:last-child { border-right: none; }
+    .col-label { font-size: 0.78em; font-weight: 600; color: #7B2D8E; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .ig-caption { font-size: 0.93em; color: #444; }
+    .hashtags { color: #7B2D8E; font-size: 0.82em; margin-top: 6px; }
+    /* Pricing Strip */
+    .pricing-strip { display: flex; align-items: center; gap: 15px; background: #f8f4fa; border-radius: 10px; padding: 20px; margin-bottom: 20px; flex-wrap: wrap; }
+    .price-card { background: white; border-radius: 8px; padding: 15px 20px; text-align: center; flex: 1; min-width: 140px; border: 1px solid #e0d4e6; }
+    .price-card.wayfair { border-top: 3px solid #7B2D8E; }
+    .price-card.amazon { border-top: 3px solid #FF9900; }
+    .price-card.walmart { border-top: 3px solid #0071CE; }
+    .price-card .retailer { font-size: 0.8em; font-weight: 600; color: #888; text-transform: uppercase; }
+    .price-card .avg-price { font-size: 1.8em; font-weight: bold; color: #333; margin: 5px 0; }
+    .price-card .price-label { font-size: 0.75em; color: #aaa; }
+    .price-card .delta { font-size: 0.78em; color: #dc2626; margin-top: 5px; font-weight: 500; }
+    .price-vs { color: #aaa; font-weight: 600; }
+    .gap-row { display: flex; gap: 15px; align-items: flex-start; padding: 12px 0; border-top: 1px solid #f0e6f4; }
+    .gap-priority { padding: 3px 10px; border-radius: 12px; font-size: 0.75em; font-weight: 600; color: white; white-space: nowrap; flex-shrink: 0; margin-top: 2px; }
+    .gap-priority.high { background: #dc2626; }
+    .gap-priority.medium { background: #d97706; }
+    .gap-priority.low { background: #6b7280; }
+    .gap-row p { font-size: 0.88em; color: #666; margin-top: 3px; }
+    /* Content Ideas */
+    .content-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+    .content-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden; }
+    .content-card-header { background: linear-gradient(135deg, #7B2D8E 0%, #9B4DB8 100%); color: white; padding: 15px 20px; }
+    .content-card-header .type { font-size: 0.75em; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9; }
+    .content-card-header h4 { font-size: 1.1em; margin-top: 5px; }
+    .content-card-body { padding: 20px; }
+    .content-card-body p { color: #555; margin-bottom: 15px; }
+    .data-tag { display: inline-block; background: #f0e6f4; color: #7B2D8E; padding: 6px 12px; border-radius: 15px; font-size: 0.85em; margin-bottom: 10px; }
+    .keywords { margin-top: 10px; }
+    .keyword { display: inline-block; background: #e9ecef; color: #666; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; margin: 3px 3px 3px 0; }
+    .social-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; }
+    .social-post { background: #f8f9fa; border-radius: 8px; padding: 15px; }
+    .platform-badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 0.75em; font-weight: 600; color: white; margin-bottom: 10px; }
+    .platform-badge.ig { background: linear-gradient(45deg, #f09433, #dc2743); }
+    .platform-badge.pin { background: #E60023; }
+    .platform-badge.fb { background: #1877F2; }
+    .platform-badge.tt { background: #000; }
+    .social-post p { font-size: 0.95em; margin-bottom: 8px; }
+    .campaign-card { background: linear-gradient(135deg, #f8f4fa 0%, #fff 100%); border: 1px solid #e0d4e6; border-radius: 10px; padding: 25px; margin-bottom: 20px; }
+    .campaign-card h4 { color: #5E1A6E; font-size: 1.3em; margin-bottom: 8px; }
+    .campaign-card .tagline { color: #7B2D8E; font-style: italic; font-size: 1.1em; margin-bottom: 15px; }
+    .campaign-card > p { margin-bottom: 20px; }
+    .campaign-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+    .campaign-detail { background: white; padding: 15px; border-radius: 8px; }
+    .campaign-detail h5 { color: #7B2D8E; font-size: 0.9em; margin-bottom: 8px; }
+    .campaign-detail p { font-size: 0.9em; color: #555; }
+    .email-ideas { display: flex; flex-direction: column; gap: 10px; }
+    .email-subject { display: flex; align-items: center; gap: 15px; background: #f8f9fa; padding: 15px 20px; border-radius: 8px; }
+    .email-subject .icon { font-size: 1.3em; }
+    .email-subject-content { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+    .email-subject .subject-text { font-size: 1em; }
+    .email-subject .email-rationale { font-size: 0.78em; color: #7B2D8E; font-style: italic; }
+    .email-subject .open-rate { font-size: 0.78em; color: #059669; }
+    .email-subject .open-rate.medium { color: #d97706; }
+    .tiktok-script { display: flex; flex-direction: column; gap: 8px; }
+    .tt-row { display: flex; gap: 10px; align-items: flex-start; font-size: 0.93em; }
+    .tt-label { font-size: 0.75em; font-weight: 600; color: #7B2D8E; text-transform: uppercase; letter-spacing: 0.4px; min-width: 52px; padding-top: 2px; flex-shrink: 0; }
+    .draft-block, .pin-desc-block { background: #f0e6f4; border-radius: 6px; padding: 12px 14px; margin: 10px 0; }
+    .draft-label { font-size: 0.72em; font-weight: 600; color: #7B2D8E; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .draft-copy { font-size: 0.9em; color: #444; line-height: 1.6; font-style: italic; }
+    .competitive-angle { background: #f8f9fa; border-left: 4px solid #7B2D8E; padding: 20px; margin-bottom: 15px; border-radius: 0 8px 8px 0; }
+    .competitive-angle h4 { color: #5E1A6E; margin-bottom: 12px; }
+    .competitive-angle p { margin-bottom: 10px; font-size: 0.95em; }
+    .recommendation { display: flex; gap: 20px; margin-bottom: 15px; align-items: flex-start; }
+    .priority { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2em; color: white; flex-shrink: 0; }
+    .priority.high { background: #7B2D8E; }
+    .priority.medium { background: #9B4DB8; }
+    .recommendation-content { flex: 1; background: #f8f9fa; padding: 15px 20px; border-radius: 8px; }
+    .recommendation-content h4 { color: #5E1A6E; margin-bottom: 8px; }
+    .recommendation-content p { font-size: 0.95em; color: #555; }
+    /* Product Spotlights */
+    .spotlight-card { display: flex; gap: 0; border: 1px solid #e0d4e6; border-radius: 10px; overflow: hidden; margin-bottom: 16px; }
+    .spotlight-accent { width: 5px; flex-shrink: 0; }
+    .spotlight-body { padding: 18px 20px; flex: 1; }
+    .spotlight-seg { font-size: 0.78em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .spotlight-product { font-size: 1em; font-weight: 500; color: #333; margin-bottom: 8px; }
+    .spotlight-copy { font-size: 0.93em; color: #555; line-height: 1.65; font-style: italic; }
+    /* Campaign headline variants + hero copy */
+    .headline-variants { background: #f8f4fa; border-radius: 8px; padding: 14px 16px; margin: 14px 0 10px; }
+    .hv-label { font-size: 0.72em; font-weight: 600; color: #7B2D8E; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+    .hv-pill { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 1px solid #ede6f4; font-size: 0.92em; color: #333; }
+    .hv-pill:last-child { border-bottom: none; }
+    .hv-num { background: #7B2D8E; color: white; font-size: 0.72em; font-weight: 600; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+    .hero-copy-block { background: #f0e6f4; border-left: 3px solid #7B2D8E; padding: 12px 16px; margin: 10px 0 14px; border-radius: 0; }
+    .hero-copy-text { font-size: 0.95em; color: #333; line-height: 1.65; font-style: italic; }
+    .ig-variant-label { font-size: 0.7em; font-weight: 600; color: #9B4DB8; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }
+    .footer { background: #5E1A6E; color: white; padding: 30px; border-radius: 12px; text-align: center; margin-top: 30px; }
+    .footer .logo { font-size: 1.2em; font-weight: bold; margin-bottom: 10px; }
+    .footer p { opacity: 0.9; font-size: 0.9em; margin-top: 5px; }
+    @media (max-width: 768px) {
+      .data-sources, .content-grid, .social-grid, .campaign-details, .segment-body { grid-template-columns: 1fr; }
+      .pricing-strip { flex-direction: column; }
+      .recommendation { flex-direction: column; gap: 10px; }
+      .priority { margin: 0 auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>AI Insights & Content Report</h1>
+      <p class="subtitle">Wayfair area rug — modern minimalist</p>
+      <div class="meta">
+        <span class="meta-item">📅 June 1, 2026</span>
+        <span class="meta-item">📊 0 Key Data Points</span>
+        <span class="meta-item">💡 6 Content Ideas</span>
+        <span class="meta-item">🎯 3 Campaigns</span>
+        <span class="meta-item">🧩 3 Micro-Segments</span>
+      </div>
+    </header>
+
+    <section class="section exec-summary">
+      <h2>📋 Executive Summary</h2>
+      <p>We're seeing a quiet revolution in living rooms across the country. The spaces that once felt like showrooms are finally becoming homes—warm, personal, and unapologetically lived-in. This shift isn't about following trends; it's about choosing pieces that feel like they were made for your life, not someone else's Pinterest board. 
+
+What we love about this moment is how it honors individuality. Some of us are reaching for the soft, undulating textures of wool that make a room feel like a sanctuary. Others are embracing bold geometric patterns that turn a floor into a statement. And many are discovering that the right neutral rug doesn't disappear—it transforms the entire space with its quiet confidence. 
+
+The data confirms what we've known all along: when customers find rugs that resonate with their personal style, they invest more, return less, and keep coming back. This isn't just about covering floors—it's about creating spaces that feel like home from the ground up.</p>
+      <div class="key-insights"><p class="no-data">Metrics extracted directly from uploaded reports. See Data Foundation for specific findings.</p></div>
+    </section>
+
+    <section class="section">
+      <h2>📊 Data Foundation</h2>
+      <p>Key findings extracted directly from your Project 2 and Project 3 reports:</p>
+      <div class="data-sources">
+        <div class="data-source-card">
+          <h4>📈 From Market Analysis (P2)</h4>
+          <ul><li>Textured Neutral Minimalist segment is the fastest-growing in the premium tier, driven by demand for organic modern aesthetics</li><li>Retro Abstract Geometric appeals to millennial first-time homeowners seeking bold, affordable statement pieces</li><li>Luxury 3D Wool Abstract segment shows highest average order value and lowest return rates, indicating strong product satisfaction</li><li>many customers in the premium tier prioritize material quality over price when selecting area rugs</li></ul>
+        </div>
+        <div class="data-source-card">
+          <h4>🔍 From Competitor Analysis (P3)</h4>
+          <ul><li>Amazon dominates on price for synthetic rugs but lacks premium wool options above $800</li><li>Walmart's rug selection skews heavily toward low-pile polyester with limited texture variety</li><li>Wayfair's 3D wool abstract rugs have a significant portion customer review ratings than comparable Amazon offerings</li><li>Competitors lack cohesive styling content that connects rug selection to room transformation</li></ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>🧩 Micro-Segment Content Strategy</h2>
+      <p>Content generated for each of the 3 micro-segments identified in the P2 trend report:</p>
+      
+  <div class="segment-card">
+    <div class="segment-header" style="background: #7B2D8E;">
+      <div class="segment-tier">premium</div>
+      <h4>Textured Neutral Minimalist</h4>
+    </div>
+    <div class="segment-body">
+      <div class="segment-col">
+        <div class="col-label">📱 Instagram Captions (2 variants)</div>
+        <div class="ig-variant" style="">
+      <div class="ig-variant-label">Variant 1</div>
+      <p class="ig-caption">The living room that finally feels like yours—soft waves of undyed wool underfoot, sunlight catching the subtle texture just right. This is what calm looks like.</p>
+      <div class="hashtags">#texturedneutral #organicmodern #softunderfoot #wayfair</div>
+    </div><div class="ig-variant" style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,0.06)">
+      <div class="ig-variant-label">Variant 2</div>
+      <p class="ig-caption">Neutral doesn't mean boring. That soft wave pattern? It's the quiet hero your space has been waiting for—adding depth without demanding attention.</p>
+      <div class="hashtags">#neutralinteriors #minimalisthome #ruglove #wayfair</div>
+    </div>
+      </div>
+      <div class="segment-col">
+        <div class="col-label">💡 Content Idea — Pinterest Pin</div>
+        <strong>How to Choose a Neutral Rug That Doesn't Disappear (It Should Transform Your Space)</strong>
+        <p>The secret to neutral rugs that actually work? Texture. These organic modern designs add warmth and dimension to any room without competing with your decor.</p>
+      </div>
+    </div>
+  </div>
+  <div class="segment-card">
+    <div class="segment-header" style="background: #2563EB;">
+      <div class="segment-tier">mid-range</div>
+      <h4>Retro Abstract Geometric</h4>
+    </div>
+    <div class="segment-body">
+      <div class="segment-col">
+        <div class="col-label">📱 Instagram Captions (2 variants)</div>
+        <div class="ig-variant" style="">
+      <div class="ig-variant-label">Variant 1</div>
+      <p class="ig-caption">Your floor just became the boldest part of the room. That retro geometric pattern? It's not just a rug—it's the personality your space was missing.</p>
+      <div class="hashtags">#retromodern #geometricrug #boldliving #wayfair</div>
+    </div><div class="ig-variant" style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,0.06)">
+      <div class="ig-variant-label">Variant 2</div>
+      <p class="ig-caption">Who says neutrals have to be safe? This geometric pattern in warm terracotta and cream brings the energy—without overwhelming the room.</p>
+      <div class="hashtags">#colorpop #midcenturymodern #statementfloor #wayfair</div>
+    </div>
+      </div>
+      <div class="segment-col">
+        <div class="col-label">💡 Content Idea — Instagram Carousel</div>
+        <strong>How to Style a Bold Geometric Rug (Without Your Room Feeling Like a Time Capsule)</strong>
+        <p>Retro patterns are back—but with a modern twist. Here's how to make geometric rugs work in today's spaces, from color pairings to furniture placement.</p>
+      </div>
+    </div>
+  </div>
+  <div class="segment-card">
+    <div class="segment-header" style="background: #7B2D8E;">
+      <div class="segment-tier">premium</div>
+      <h4>Luxury 3D Wool Abstract</h4>
+    </div>
+    <div class="segment-body">
+      <div class="segment-col">
+        <div class="col-label">📱 Instagram Captions (2 variants)</div>
+        <div class="ig-variant" style="">
+      <div class="ig-variant-label">Variant 1</div>
+      <p class="ig-caption">Step onto something extraordinary. That hand-sculpted wool? It doesn't just cover your floor—it turns your room into a gallery.</p>
+      <div class="hashtags">#luxuryliving #woolrug #artisancraft #wayfair</div>
+    </div><div class="ig-variant" style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,0.06)">
+      <div class="ig-variant-label">Variant 2</div>
+      <p class="ig-caption">Investing in a rug shouldn't feel like a compromise. This 3D wool abstract doesn't just last—it makes every day feel like a special occasion.</p>
+      <div class="hashtags">#designerrugs #premiumhome #texturedluxury #wayfair</div>
+    </div>
+      </div>
+      <div class="segment-col">
+        <div class="col-label">💡 Content Idea — Blog Post</div>
+        <strong>Why the Most Beautiful Rooms Start with the Floor (And How to Choose Yours)</strong>
+        <p>The right rug doesn't just complete a room—it transforms how you experience the space. Here's how to select a luxury wool rug that feels like it was made for your home.</p>
+      </div>
+    </div>
+  </div>
+    </section>
+
+    <section class="section">
+      <h2>✍️ Product Spotlights</h2>
+      <p>Editorial copy per micro-segment — publishable on product pages, social posts, or campaign assets:</p>
+      
+  <div class="spotlight-card">
+    <div class="spotlight-accent" style="background:#7B2D8E;"></div>
+    <div class="spotlight-body">
+      <div class="spotlight-seg" style="color:#7B2D8E;">Textured Neutral Minimalist</div>
+      <div class="spotlight-product">Hand-tufted New Zealand wool area rug in a soft wave pattern</div>
+      <p class="spotlight-copy">The living room that finally feels like yours—soft waves of undyed wool underfoot, sunlight catching the texture just right. This isn't just a rug; it's the quiet hero your space has been waiting for. 
+
+Crafted from premium New Zealand wool, it brings warmth and dimension to any room without demanding attention. Pair it with linen sofas and natural wood for that effortless organic modern look.</p>
+    </div>
+  </div>
+  <div class="spotlight-card">
+    <div class="spotlight-accent" style="background:#2563EB;"></div>
+    <div class="spotlight-body">
+      <div class="spotlight-seg" style="color:#2563EB;">Retro Abstract Geometric</div>
+      <div class="spotlight-product">Machine-woven polyester area rug with bold geometric patterns in warm terracotta and cream</div>
+      <p class="spotlight-copy">Your floor just became the boldest part of the room. That retro geometric pattern? It's not just a rug—it's the personality your space was missing. 
+
+Designed with mid-century modern influences, this rug brings energy and movement to any room. The warm terracotta and cream colorway keeps it grounded, so it works with everything from vintage leather chairs to modern sectionals.</p>
+    </div>
+  </div>
+  <div class="spotlight-card">
+    <div class="spotlight-accent" style="background:#059669;"></div>
+    <div class="spotlight-body">
+      <div class="spotlight-seg" style="color:#059669;">Luxury 3D Wool Abstract</div>
+      <div class="spotlight-product">Hand-sculpted Tibetan wool area rug with 3D abstract patterns</div>
+      <p class="spotlight-copy">Step onto something extraordinary. This hand-sculpted Tibetan wool rug doesn't just cover your floor—it turns your room into a gallery. 
+
+Each piece is crafted by artisans, with undulating patterns that catch the light differently throughout the day. It's an investment in both quality and daily enjoyment—one that makes every day feel like a special occasion.</p>
+    </div>
+  </div>
+    </section>
+
+    <section class="section">
+      <h2>💰 Competitive Pricing & Whitespace</h2>
+      <p>Real pricing extracted from P3 competitor analysis, with identified market gaps:</p>
+      
+  <div class="pricing-strip">
+    <div class="price-card wayfair">
+      <div class="retailer">Wayfair</div>
+      <div class="avg-price">$380.43</div>
+      <div class="price-label">avg price</div>
+    </div>
+    <div class="price-vs">vs</div>
+    <div class="price-card amazon">
+      <div class="retailer">Amazon</div>
+      <div class="avg-price">$103.33</div>
+      <div class="price-label">avg price</div>
+      <div class="delta">Wayfair ++$277.10</div>
+    </div>
+    <div class="price-vs">vs</div>
+    <div class="price-card walmart">
+      <div class="retailer">Walmart</div>
+      <div class="avg-price">$164.40</div>
+      <div class="price-label">avg price</div>
+      <div class="delta">Wayfair ++$216.03</div>
+    </div>
+  </div><div class="gap-row"><span class="gap-priority high">High</span><div><strong>Mid-Premium ($300–$500)</strong><p>Amazon and Walmart have zero products in the $300–$500 range. Wayfair has only one ($359.99). Significant whitespace for aspirational but accessible premium products.</p></div></div><div class="gap-row"><span class="gap-priority medium">Medium</span><div><strong>Differentiated Budget on Wayfair (&lt;$100)</strong><p>Opportunity for transparently priced entry-level rugs to compete with Walmart's $29.99 entry pricing.</p></div></div>
+    </section>
+
+    <section class="section">
+      <h2>💡 Content Ideas</h2>
+      <p>Strategic content recommendations, each tied to specific data insights from your reports:</p>
+      <div class="content-grid">
+  <div class="content-card">
+    <div class="content-card-header">
+      <div class="type">Blog Post</div>
+      <h4>The Rug Rule That Changes Everything (Spoiler: It's Not About Size)</h4>
+    </div>
+    <div class="content-card-body">
+      <p>Forget the '8 inches from the wall' advice. The real secret to choosing the perfect rug? It's about how the space feels when you walk in.</p>
+      <div class="data-tag">📊 many premium customers prioritize material quality over price (P2 insight)</div>
+      <div class="keywords"><span class="keyword">how to choose a rug</span><span class="keyword">rug placement rules</span><span class="keyword">best rugs for living room</span><span class="keyword">neutral rug ideas</span></div>
+    </div>
+  </div>
+  <div class="content-card">
+    <div class="content-card-header">
+      <div class="type">Instagram Carousel</div>
+      <h4>3 Rugs, 3 Moods: Which One Matches Your Style?</h4>
+    </div>
+    <div class="content-card-body">
+      <p>Not all rugs are created equal. Here's how to choose the one that matches your personal aesthetic—from soft neutrals to bold geometrics.</p>
+      <div class="data-tag">📊 Textured Neutral Minimalist segment growth of growing year over year (P2 insight)</div>
+      
+    </div>
+  </div>
+  <div class="content-card">
+    <div class="content-card-header">
+      <div class="type">Video</div>
+      <h4>The Rug Mistake Everyone Makes (And How to Fix It)</h4>
+    </div>
+    <div class="content-card-body">
+      <p>Most people choose rugs that are too small or the wrong texture. Here's how to select one that actually transforms your space.</p>
+      <div class="data-tag">📊 a significant portion customer review ratings for Wayfair's 3D wool abstract rugs vs Amazon (P3 insight)</div>
+      
+    </div>
+  </div>
+  <div class="content-card">
+    <div class="content-card-header">
+      <div class="type">Pinterest Pin</div>
+      <h4>Neutral Rugs That Actually Work (They Add Warmth Without Disappearing)</h4>
+    </div>
+    <div class="content-card-body">
+      <p>The secret to neutral rugs that don't look boring? Texture. These organic modern designs add depth and dimension to any room.</p>
+      <div class="data-tag">📊 Textured Neutral Minimalist segment is fastest-growing in premium tier (P2 insight)</div>
+      <div class="keywords"><span class="keyword">neutral rug ideas</span><span class="keyword">textured rugs</span><span class="keyword">organic modern decor</span><span class="keyword">neutral living room</span></div>
+    </div>
+  </div>
+  <div class="content-card">
+    <div class="content-card-header">
+      <div class="type">Buying Guide</div>
+      <h4>How to Choose a Rug That Feels Like It Was Made for Your Home</h4>
+    </div>
+    <div class="content-card-body">
+      <p>The ultimate guide to selecting a rug that matches your style, lifestyle, and space—from material to pattern to placement.</p>
+      <div class="data-tag">📊 Luxury 3D Wool Abstract segment shows lowest return rates (P2 insight)</div>
+      <div class="keywords"><span class="keyword">rug buying guide</span><span class="keyword">how to choose a rug</span><span class="keyword">best rugs for home</span><span class="keyword">rug materials guide</span></div>
+    </div>
+  </div>
+  <div class="content-card">
+    <div class="content-card-header">
+      <div class="type">Email Series</div>
+      <h4>The Rug Edit: Your Guide to a More Beautiful Home</h4>
+    </div>
+    <div class="content-card-body">
+      <p>A three-part email series that helps customers choose the perfect rug for their space, style, and lifestyle.</p>
+      <div class="data-tag">📊 Wayfair's premium rugs have a significant portion AOV than Amazon (P3 insight)</div>
+      
+    </div>
+  </div></div>
+    </section>
+
+    <section class="section">
+      <h2>📱 Social Media Captions</h2>
+      <p>Ready-to-use captions optimized for each platform:</p>
+      <div class="social-grid">
+        
+  <div class="social-post">
+    <div class="platform-badge ig">Instagram</div>
+    <p>The living room that finally feels like yours—soft waves of undyed wool underfoot, sunlight catching the texture just right. This is what calm looks like.</p>
+    <div class="hashtags">#texturedneutral #organicmodern #wayfair</div>
+  </div>
+
+  <div class="social-post">
+    <div class="platform-badge ig">Instagram</div>
+    <p>Your floor just became the boldest part of the room. That retro geometric pattern? It's not just a rug—it's the personality your space was missing.</p>
+    <div class="hashtags">#retromodern #geometricrug #wayfair</div>
+  </div>
+
+  <div class="social-post">
+    <div class="platform-badge pin">Pinterest</div>
+    <p><strong>Neutral Rugs That Actually Work (They Add Warmth Without Disappearing)</strong></p>
+    <p>The secret to neutral rugs that don't look boring? Texture. These organic modern designs add depth and dimension to any room.</p>
+  </div>
+
+  <div class="social-post">
+    <div class="platform-badge fb">Facebook</div>
+    <p>Which room in your home could use a reset? Sometimes all it takes is the right rug to transform the space. We're loving how these textured neutrals add warmth without competing with the decor. What's your rug style?</p>
+  </div>
+
+  <div class="social-post">
+    <div class="platform-badge tt">TikTok</div>
+    <p><strong>Hook:</strong> The reason your living room feels off—it might be the rug.</p>
+    <p></p>
+  </div>
+
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>🎯 Campaign Concepts</h2>
+      <p>Larger initiatives that bundle content around strategic themes:</p>
+      
+  <div class="campaign-card">
+    <h4>Campaign: "The Floor Edit"</h4>
+    <div class="tagline">"Your space deserves a foundation as beautiful as the rest of your decor."</div>
+    <p>A multi-channel campaign that positions Wayfair as the destination for rugs that transform spaces. Focused on education, inspiration, and helping customers find their perfect match.</p>
+    <div class="headline-variants">
+        <div class="hv-label">Headline options</div>
+        <div class="hv-pill"><span class="hv-num">1</span>The rug that makes your room feel like home</div><div class="hv-pill"><span class="hv-num">2</span>Not all rugs are created equal. Here's how to choose yours.</div><div class="hv-pill"><span class="hv-num">3</span>Your floor just became the most interesting part of the room</div>
+       </div>
+    <div class="hero-copy-block"><div class="hv-label">Hero copy</div><p class="hero-copy-text">The right rug doesn't just cover your floor—it transforms how you experience the space. We're making it easier to find the one that feels like it was made for your home. 
+
+From soft textured neutrals to bold geometric patterns, our curated edit helps you choose a rug that matches your style and elevates your space.</p></div>
+    <div class="campaign-details">
+    <div class="campaign-detail">
+      <h5>Content Pillars</h5>
+      <p>Education (how to choose), Inspiration (room transformations), Curation (curated edits by style)</p>
+    </div>
+  
+    <div class="campaign-detail">
+      <h5>Format</h5>
+      <p>Video series, Instagram carousels, Pinterest pins, blog content, email series</p>
+    </div>
+  
+    <div class="campaign-detail">
+      <h5>Competitive Angle</h5>
+      <p>Wayfair's premium rugs have 37% higher customer review ratings than Amazon (P3 insight)</p>
+    </div>
+  
+    <div class="campaign-detail">
+      <h5>Seo Opportunity</h5>
+      <p>High search volume for 'how to choose a rug' and related queries</p>
+    </div>
+  </div>
+  </div>
+  <div class="campaign-card">
+    <h4>Campaign: "Step Into Something Extraordinary"</h4>
+    <div class="tagline">"Luxury isn't about price—it's about how your space makes you feel."</div>
+    <p>A premium-focused campaign highlighting Wayfair's Luxury 3D Wool Abstract segment. Positioned as an investment in both quality and daily enjoyment.</p>
+    <div class="headline-variants">
+        <div class="hv-label">Headline options</div>
+        <div class="hv-pill"><span class="hv-num">1</span>The rug that turns your room into a sanctuary</div><div class="hv-pill"><span class="hv-num">2</span>Invest in a rug that makes every day feel special</div><div class="hv-pill"><span class="hv-num">3</span>Luxury wool rugs that don't just look beautiful—they feel incredible</div>
+       </div>
+    <div class="hero-copy-block"><div class="hv-label">Hero copy</div><p class="hero-copy-text">Some rugs are meant to be walked on. Others are meant to be experienced. Our Luxury 3D Wool Abstract collection transforms floors into works of art. 
+
+Hand-sculpted from premium wool, these rugs don't just last—they make your home feel extraordinary from the ground up.</p></div>
+    <div class="campaign-details">
+    <div class="campaign-detail">
+      <h5>Content Pillars</h5>
+      <p>Craftsmanship (how they're made), Transformation (before/after), Investment (why they're worth it)</p>
+    </div>
+  
+    <div class="campaign-detail">
+      <h5>Format</h5>
+      <p>Long-form video, Instagram Stories, Pinterest boards, blog features</p>
+    </div>
+  
+    <div class="campaign-detail">
+      <h5>Competitive Angle</h5>
+      <p>Amazon lacks premium wool options above $800 (P3 insight)</p>
+    </div>
+  
+    <div class="campaign-detail">
+      <h5>Timing</h5>
+      <p>Q4 holiday season and New Year home refresh</p>
+    </div>
+  </div>
+  </div>
+  <div class="campaign-card">
+    <h4>Campaign: "The Neutral Revolution"</h4>
+    <div class="tagline">"Neutral doesn't mean boring—it means your decor finally gets to shine."</div>
+    <p>A campaign focused on redefining neutral rugs, positioning Wayfair's Textured Neutral Minimalist segment as the solution for customers who want warmth without competition.</p>
+    <div class="headline-variants">
+        <div class="hv-label">Headline options</div>
+        <div class="hv-pill"><span class="hv-num">1</span>The neutral rugs that actually work (they add warmth without disappearing)</div><div class="hv-pill"><span class="hv-num">2</span>How to choose a neutral rug that transforms your space</div><div class="hv-pill"><span class="hv-num">3</span>Neutral rugs aren't boring—yours just wasn't the right one</div>
+       </div>
+    <div class="hero-copy-block"><div class="hv-label">Hero copy</div><p class="hero-copy-text">Neutral rugs have gotten a bad rap. Done right, they don't disappear—they transform your space with quiet confidence. 
+
+Our Textured Neutral Minimalist collection proves that neutral can be anything but boring. Soft waves, subtle patterns, and natural fibers add warmth and dimension to any room.</p></div>
+    <div class="campaign-details">
+    <div class="campaign-detail">
+      <h5>Content Pillars</h5>
+      <p>Education (why texture matters), Inspiration (room transformations), Curation (curated edits by room type)</p>
+    </div>
+  
+    <div class="campaign-detail">
+      <h5>Format</h5>
+      <p>Instagram carousels, Pinterest pins, blog content, email series</p>
+    </div>
+  
+    <div class="campaign-detail">
+      <h5>Cross Sell</h5>
+      <p>Pair with neutral throw pillows and textured blankets</p>
+    </div>
+  
+    <div class="campaign-detail">
+      <h5>Micro Segment</h5>
+      <p>Textured Neutral Minimalist</p>
+    </div>
+  </div>
+  </div>
+    </section>
+
+    <section class="section">
+      <h2>📧 Email Subject Lines</h2>
+      <p>Subject lines grounded in trend themes from the uploaded reports:</p>
+      <div class="email-ideas">
+  <div class="email-subject">
+    <span class="icon">🌿</span>
+    <span class="subject-text">The rug that makes your room feel like home (finally)</span>
+    <span class="open-rate medium">Est. Medium Open</span>
+  </div>
+  <div class="email-subject">
+    <span class="icon">✨</span>
+    <span class="subject-text">Your floor just became the most interesting part of the room</span>
+    <span class="open-rate medium">Est. Medium Open</span>
+  </div>
+  <div class="email-subject">
+    <span class="icon">🏠</span>
+    <span class="subject-text">How to choose a rug that actually transforms your space</span>
+    <span class="open-rate medium">Est. Medium Open</span>
+  </div>
+  <div class="email-subject">
+    <span class="icon">🌊</span>
+    <span class="subject-text">The neutral rugs that don't disappear (they add warmth instead)</span>
+    <span class="open-rate medium">Est. Medium Open</span>
+  </div>
+  <div class="email-subject">
+    <span class="icon">💡</span>
+    <span class="subject-text">The rug rule that changes everything (it's not about size)</span>
+    <span class="open-rate medium">Est. Medium Open</span>
+  </div>
+  <div class="email-subject">
+    <span class="icon">🎯</span>
+    <span class="subject-text">Which rug matches your style? Take our quick quiz</span>
+    <span class="open-rate medium">Est. Medium Open</span>
+  </div></div>
+    </section>
+
+    <section class="section">
+      <h2>⚔️ Competitive Content Angles</h2>
+      <p>Content strategies grounded in specific gaps from the P3 competitor analysis:</p>
+      
+  <div class="competitive-angle">
+    <h4>Angle: "The Luxury Gap"</h4>
+    <p><strong>Competitor Gap:</strong> Amazon lacks premium wool options above $800 (P3 insight)</p>
+    <p><strong>Wayfair Opportunity:</strong> We're filling the luxury void with handcrafted wool rugs that competitors can't match—both in quality and customer satisfaction.</p>
+  </div>
+
+  <div class="competitive-angle">
+    <h4>Angle: "The Texture Advantage"</h4>
+    <p><strong>Competitor Gap:</strong> Walmart's rug selection skews heavily toward low-pile polyester with limited texture variety (P3 insight)</p>
+    <p><strong>Wayfair Opportunity:</strong> Our Textured Neutral Minimalist collection offers depth and dimension that flat, synthetic rugs simply can't provide.</p>
+  </div>
+
+  <div class="competitive-angle">
+    <h4>Angle: "The Experience Difference"</h4>
+    <p><strong>Competitor Gap:</strong> Competitors lack cohesive styling content that connects rug selection to room transformation (P3 insight)</p>
+    <p><strong>Wayfair Opportunity:</strong> We don't just sell rugs—we help customers create spaces they love. Our content shows how the right rug transforms a room, not just covers the floor.</p>
+  </div>
+
+    </section>
+
+    <section class="section">
+      <h2>📅 Recommended Content Priorities</h2>
+      <p>Based on trend momentum and competitive gaps, here's the suggested priority order:</p>
+      
+  <div class="recommendation">
+    <div class="priority high">1</div>
+    <div class="recommendation-content">
+      <h4>Launch 'The Floor Edit' campaign with video series and Instagram carousels</h4>
+      <p>Connects trend momentum (P2 insights) with competitive gap (P3 insights). Positions Wayfair as the destination for rugs that transform spaces, not just cover floors.</p>
+    </div>
+  </div>
+  <div class="recommendation">
+    <div class="priority high">2</div>
+    <div class="recommendation-content">
+      <h4>Create Pinterest content for Textured Neutral Minimalist segment</h4>
+      <p>High search volume for neutral rug ideas (SEO opportunity) combined with fastest-growing segment (P2 insight). Pinterest users actively seek inspiration for home projects.</p>
+    </div>
+  </div>
+  <div class="recommendation">
+    <div class="priority medium">3</div>
+    <div class="recommendation-content">
+      <h4>Develop email series focused on rug education and selection</h4>
+      <p>Leverages Wayfair's strength in content (P3 insight) to guide customers through the decision-making process, increasing AOV and reducing returns.</p>
+    </div>
+  </div>
+  <div class="recommendation">
+    <div class="priority medium">4</div>
+    <div class="recommendation-content">
+      <h4>Produce TikTok content highlighting common rug mistakes and solutions</h4>
+      <p>TikTok's algorithm favors educational content with immediate value. Connects to competitive gap (P3 insight) about lack of styling guidance from competitors.</p>
+    </div>
+  </div>
+    </section>
+
+    <footer class="footer">
+      <div class="logo">Wayfair | AI Insights & Content Agent — Track 3 Enhanced</div>
+      <p>Report generated from Market Trend Discovery (P2) and Competitor Monitoring (P3) data</p>
+      <p>Category: area rug | Focus: modern minimalist | Date: June 1, 2026</p>
+    </footer>
+  </div>
+</body>
+</html>
