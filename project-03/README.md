@@ -9,7 +9,7 @@
 
 ## Overview
 
-A multi-stage n8n automation agent that benchmarks Wayfair's Area Rug catalog against key competitors — Amazon, Walmart, and Target — by scraping live product data, normalizing attributes, and running a sequential AI analysis pipeline. The final output is a styled, decision-ready HTML competitive intelligence report uploaded directly to Google Drive.
+A multi-stage n8n automation agent that benchmarks Wayfair's Area Rug catalog against key competitors — Amazon and Walmart — by scraping live product data, normalizing attributes, and running a sequential AI analysis pipeline. The final output is a styled, decision-ready HTML competitive intelligence report uploaded directly to Google Drive.
 
 **The problem it solves:** Writing a competitive analysis manually requires hours of browsing competitor pages, tracking pricing and feature shifts, and organizing findings into a coherent report. This agent automates the entire workflow — input a rug category and competitor URLs, and receive a structured report covering pricing gaps, feature gaps, assortment opportunities, and strategic recommendations in 15–20 minutes.
 
@@ -28,7 +28,7 @@ A multi-stage n8n automation agent that benchmarks Wayfair's Area Rug catalog ag
 | **Stage 7** | Google Drive Upload | ✅ Complete |
 | **Target Scraper** | Target competitor scraper | ⏳ Deferred to v2 |
 
-**Workflow stats:** 65 nodes · 56 connections · 2 retailers live · 6 AI agents · last updated May 2026
+**Workflow stats:** 88 nodes · 81 connections · 2 retailers live · 6 AI agents · last updated May 2026
 
 ---
 
@@ -59,12 +59,12 @@ A single insight can drive real decisions — if Amazon and Walmart are aggressi
 |---|---|
 | **Amazon** | Wayfair's most direct e-commerce competitor; strongest proxy for real-time demand signals; high SKU volume with scraped price, material, and feature data |
 | **Walmart** | Growing design-conscious assortment (SAFAVIEH, Mainstays); aggressive discounting in the $27–$70 budget tier; most direct threat on washable/functional rugs |
-| **Target** | Threshold and Studio McGee brands compete on Wayfair's exact design-positioning turf in the $40–$150 tier; most strategically important gap in the original Amazon + Walmart analysis |
 
 ### Deferred to v2
 
 | Retailer | Why deferred |
 |---|---|
+| **Target** | Threshold and Studio McGee brands compete on Wayfair's exact design-positioning turf in the $40–$150 tier; most strategically important gap in the Amazon + Walmart analysis — added once dual-path scraper pattern is validated on live retailers |
 | **IKEA** | Online catalog is shallow relative to in-store depth; primary competitive threat is the physical discovery experience which no web scraper can capture; site structure requires custom parsing logic for comparatively low signal return |
 | **Ruggable** | D2C brand, no traditional PDP scraping path; best monitored via social signals and press rather than product listing scraping |
 
@@ -73,60 +73,85 @@ A single insight can drive real decisions — if Amazon and Walmart are aggressi
 ## Full Workflow Architecture
 
 ```
-[STAGE 1] User Input
-  Chat Trigger
-    └── Category name + Amazon URLs + Walmart URLs + Target URLs
+[STAGE 1] Input & Routing
+  Chat Trigger (When chat message received)
+    └── Input Parser (Code)
+          └── If (Category Validator)
+                ├── ✅ Valid → fan out to scraping stages
+                └── ❌ Invalid → Error Response (stop workflow)
 
-[STAGE 2] Input Parsing & Validation
-  Input Parser (Code)
-    └── Category Validator (IF)
-          ├── ✅ Valid → fan out to scraping stages
-          └── ❌ Invalid → Error Response (stop workflow)
+[STAGE 2] Wayfair Scraping — Baseline
+  Fetch Wayfair Rug Page (HTTP)
+    └── Extract Rug Products (Code)
+          └── Filter Valid Products (Filter)
+                └── Create Final JSON (Code)
+                      └── Code (debug pass-through)
 
-[STAGE 3] Wayfair Scraping — Baseline
-  Prepare Wayfair URLs → Is List Empty? (IF)
-    └── Visit Product Page (HTTP) → Parse Wayfair Details (Cheerio)
-          └── Deduplicate + Build Wayfair Product List
-
-[STAGE 4] Amazon Scraping — Competitor
+[STAGE 3] Amazon Scraping — Competitor
   Path 1 (Collection URLs):
-    Prepare Collection URLs → Is List Empty? (IF)
-      └── Visit Aisle Page (HTTP) → Extract Product Links (HTML)
-            → Remove Duplicates → Pause (1.5s Wait)
-              → Visit Product Page (HTTP) → Read Item Details (Cheerio)
+    Prepare Collection List (Code) → Is List Empty? (IF)
+      └── Visit Aisle Page (HTTP) → Extract Product Links (HTML/Cheerio)
+            → Remove Duplicate Links (Code) → Pause for Safety (Wait 1.5s)
+              → Visit Product Page (HTTP) → Read Item Details (Code)
 
   Path 2 (Direct URLs):
-    Prepare Direct Links → Do We Have Direct Links? (IF)
-      └── Visit Direct Product Page (HTTP) → Read Direct Item Details (Cheerio)
+    Prepare Direct Links (Code) → Do We Have Direct Links? (IF)
+      └── Visit Direct Product Page (HTTP) → Read Direct Item Details (Code)
 
-  Both paths → Merge Amazon Products → Deduplicate + Combine Final List
+  Both paths → Merge Amazon Products → Combine Amazon Products (Code)
 
-[STAGE 5] Walmart Scraping — Competitor
-  (Same dual-path pattern as Stage 4, parameterized for Walmart)
+[STAGE 4] Walmart Scraping — Competitor
+  Product path:
+    Process Walmart Products (Code) → Has Walmart Product URL? (IF)
+      └── Wait Walmart Product → Fetch Walmart Product (HTTP)
+            → Parse Walmart Product (Code)
 
-[STAGE 5B] Target Scraping — Competitor (v1 addition)
-  (Same dual-path pattern as Stage 4, parameterized for Target)
+  Collection path:
+    Process Walmart Collections (Code) → Has Walmart Collection URL? (IF)
+      └── Fetch Walmart Collection (HTTP) → Extract Walmart Links (Code)
+            → Wait Walmart Collection → Fetch Walmart Product (HTTP)
+              → Parse Walmart Product (Code)
 
-[STAGE 6] AI Analysis — Sequential Pipeline
-  Merge All Retailer Products
-    └── Wait
-          └── Scope Generator (Code)
-                └── Wait → Executive Summary (Gemini Agent)
-                      └── Wait → Competitor Analysis (Gemini Agent)
-                            └── Wait → Comparison (Gemini Agent)
-                                  └── Wait → Pricing & Whitespace (Gemini Agent)
-                                        └── Wait → Recommendations (Gemini Agent)
-                                              └── Wait → Supplier ID (Gemini Agent)
+  Both paths → Merge Walmart Results → Combine Walmart Products (Code)
 
-[STAGE 7] Report Assembly
-  Collect All Sections (Code)
-    └── Assemble HTML Report (Code)
-          └── Section Validator (Code)
-                └── Create Download File (Code)
+  Merge (all retailers: Wayfair + Amazon + Walmart)
 
-[STAGE 8] Google Drive Upload
-  Upload to Wayfair Reports folder (Google Drive MCP)
-    └── Competitive Intelligence Report — styled HTML · downloadable
+[STAGE 5] AI Analysis — Sequential Pipeline
+  Scope Generator (Code — static HTML section)
+    └── Wait After Scope
+          └── Executive Summary Generator    (Gemini Agent)
+                └── Wait After Executive
+                      └── Amazon Analysis Generator      (Mistral Agent)
+                            └── Wait After Amazon
+                                  └── Comparison Generator          (Gemini Agent)
+                                        └── Wait After Comparison
+                                              └── Pricing & Whitespace Generator (Gemini Agent)
+                                                    └── Wait After Pricing
+                                                          └── Recommendations Generator     (Gemini Agent)
+                                                                └── Wait
+                                                                      └── Supplier Identification Generator (Mistral Agent)
+
+[STAGE 6] Report Assembly
+  HTML Assembler (Code)
+    └── Clean AI Output (Code)
+          └── Download HTML File (Code)
+                └── See HTML Output (HTML Preview)
+
+[STAGE 7] Google Drive Upload
+  Find Wayfair Reports (Google Drive)
+    └── Store Root ID (Code)
+          └── Find Category Folder (Google Drive)
+                └── Check Category (Code)
+                      └── Category Exists? (IF)
+                            ├── ✅ Exists  → Merge Category (Code)
+                            └── ❌ Missing → Create Category (Google Drive) → Merge Category (Code)
+                                  └── Find Date Folder (Google Drive)
+                                        └── Check Date (Code)
+                                              └── Date Exists? (IF)
+                                                    ├── ✅ Exists  → Merge Date (Code)
+                                                    └── ❌ Missing → Create Date Folder (Google Drive) → Merge Date (Code)
+                                                          └── Upload to Drive
+                                                               (path: Wayfair Reports / [Category] / [YYYY-MM-DD] / report.html)
 ```
 
 ---
@@ -157,23 +182,22 @@ https://www.target.com/c/rugs/-/N-5xtnr...
 
 ---
 
-### Stage 5 — Walmart Scraping: ScraperAPI Integration
+### Stage 4 — Walmart Scraping
 
-Walmart's anti-bot infrastructure returns a **412 Precondition Failed** response to standard HTTP requests regardless of User-Agent headers. Direct fetch is blocked at the TLS fingerprinting layer — automated clients cannot replicate the browser handshake signals Walmart checks.
-
-**Fix applied:** All three Walmart HTTP nodes (`Fetch Walmart Product`, `Fetch Walmart Collection`, `Fetch Walmart Product2`) are routed through ScraperAPI, which handles rotating residential proxies, browser rendering, and bot-detection bypass automatically.
+Walmart's anti-bot infrastructure returns a **412 Precondition Failed** response to standard HTTP requests. The workflow routes all three Walmart HTTP nodes (`Fetch Walmart Product`, `Fetch Walmart Collection`, `Fetch Walmart Product4`) using User-Agent spoofing to mimic browser traffic.
 
 ```
-// URL field in each Walmart HTTP node
-http://api.scraperapi.com?api_key={{ $credentials.scraperApiKey }}&url={{ encodeURIComponent($json.url) }}
+// Headers applied to all Walmart HTTP nodes
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+Accept: text/html
 ```
 
 | Consideration | Detail |
 |---|---|
-| Latency | +3–8s per request vs. <1s direct fetch |
-| Rate limit | Free tier: 1,000 calls/month |
-| Reliability | More reliable than direct fetch once bot detection triggers |
-| Mitigation | Existing 1.5s Wait nodes kept alongside ScraperAPI routing |
+| Approach | User-Agent header spoofing to mimic browser traffic |
+| Latency | Standard HTTP request speed |
+| Rate limiting | Existing 1.5s Wait nodes between requests |
+| v2 improvement | If Walmart tightens bot detection, ScraperAPI (rotating residential proxies) is the next-level fix — treat as an infrastructure upgrade, not a workaround |
 
 ---
 
@@ -193,19 +217,19 @@ All retailer scrapers follow the same parameterized template:
 
 ---
 
-### Stage 6 — AI Analysis Pipeline
+### Stage 5 — AI Analysis Pipeline
 
-Seven sequential Gemini agents, each with a focused single-job system message. **Wait nodes between every call** to respect Gemini rate limits.
+Six sequential AI agents, each with a focused single-job system message. **Wait nodes between every call** to respect rate limits. Four agents use Gemini; two use Mistral Large.
 
 | Node | Model | Output |
 |---|---|---|
 | **Scope Generator** | Code | Research scope metadata — date, category, retailers, product counts |
-| **Executive Summary** | Gemini | Competitive position, top threat, top opportunity, key stats |
-| **Competitor Analysis** | Gemini | Per-retailer: strategy label, feature advantages, Wayfair strengths, threat level |
-| **Comparison** | Gemini | Head-to-head feature matrix across all retailers |
-| **Pricing & Whitespace** | Gemini | Price band heatmap, up to 4 whitespace opportunities, risk matrix |
-| **Recommendations** | Gemini | Quick wins (0–30d), near-term (30–90d), strategic (90–180d), watch items |
-| **Supplier ID** | Gemini | Brands on competitors not on Wayfair; sourcing candidates |
+| **Executive Summary Generator** | Gemini | Competitive position, top threat, top opportunity, key stats |
+| **Amazon Analysis Generator** | Mistral Large | Per-retailer deep-dive: strategy label, feature advantages, Wayfair strengths, threat level |
+| **Comparison Generator** | Gemini | Head-to-head feature matrix across all retailers |
+| **Pricing & Whitespace Generator** | Gemini | Price band heatmap, up to 4 whitespace opportunities, risk matrix |
+| **Recommendations Generator** | Gemini | Quick wins (0–30d), near-term (30–90d), strategic (90–180d), watch items |
+| **Supplier Identification Generator** | Mistral Large | Brands on competitors not on Wayfair; sourcing candidates |
 
 **System message architecture — 5-layer framework applied to every node:**
 
@@ -246,10 +270,10 @@ This scopes every AI analysis to the user's actual input — no hardcoded catego
 ### Stage 8 — Google Drive Upload
 
 - Uploads the compiled HTML report to the **Wayfair Reports** folder in Google Drive
-- Uses Google Drive MCP credentials configured in n8n
+- Uses Google Drive OAuth credentials configured in n8n
 - Returns a shareable link in the workflow output
 
-> **Note:** This stage requires Google Drive MCP credentials to be active in n8n before the final workflow run.
+> **Note:** This stage requires Google Drive OAuth credentials to be active in n8n before the final workflow run.
 
 ---
 
@@ -257,23 +281,24 @@ This scopes every AI analysis to the user's actual input — no hardcoded catego
 
 | Purpose | Tool |
 |---|---|
-| Competitive analysis, report writing | Google Gemini API |
+| Executive summary, comparison, pricing & whitespace, recommendations | Google Gemini API |
+| Competitor analysis (Amazon deep-dive), supplier identification | Mistral Large via Mistral Cloud API |
 | Workflow automation | n8n |
 | Product data scraping | HTTP Request + Cheerio (JavaScript) |
-| Report delivery | Google Drive MCP |
+| Report delivery | Google Drive (OAuth) |
 | Version control | GitHub |
 
 **API Credentials required:**
 - Google Gemini API
-- Google Drive MCP (OAuth)
-- ScraperAPI key (for Walmart scraping — store as n8n credential, do not hardcode in URL field)
+- Mistral Cloud API
+- Google Drive OAuth
 
 ---
 
 ## Architectural Decisions & Rationale
 
 ### 1. Modular, parameterized scrapers
-Each retailer scraper (Stages 3–5B) uses the same HTTP + Cheerio parsing template with retailer-specific selectors injected as parameters. Adding a new competitor is a configuration change, not a rebuild — new retailer slots into the merge stage without touching existing scraper logic.
+Each retailer scraper (Stages 2–4) uses the same parameterized HTTP + Cheerio parsing template with retailer-specific selectors injected as parameters. Adding a new competitor is a configuration change, not a rebuild — new retailer slots into the merge stage without touching existing scraper logic.
 
 ### 2. One AI node, one job
 Each Stage 6 sub-node owns exactly one report section. Asking a single prompt to produce multiple sections degrades output quality across all of them. Focused prompts produce consistent, parseable JSON.
@@ -287,8 +312,8 @@ If a retailer returns fewer than 3 products, nodes flag `low_sample: true` in th
 ### 5. Wait nodes are load-bearing
 Gemini rate limits will fail chained AI calls without deliberate pauses. Every Stage 6 node is preceded by a Wait node — this is not optional. Runtime increases but reliability across the full pipeline is maintained.
 
-### 6. ScraperAPI as the Walmart proxy layer
-Direct HTTP requests to Walmart are blocked by TLS fingerprinting and bot detection — User-Agent spoofing alone is insufficient. Routing through ScraperAPI adds 3–8s per request but is the only reliable fetch path. This is treated as an infrastructure dependency, not a workaround.
+### 6. User-Agent spoofing as the Walmart fetch strategy
+Direct HTTP requests to Walmart use browser-mimicking User-Agent headers (`Mozilla/5.0 Windows NT 10.0`) alongside standard `Accept: text/html` headers to reduce bot-detection triggers. This is the v1 approach. If Walmart tightens its TLS fingerprinting layer in future runs, ScraperAPI (rotating residential proxies + full browser rendering) is the correct infrastructure upgrade path — it should be treated as a required credential at that point, not a workaround patched in after the fact.
 
 ### 7. Null-safe empty returns in data pipeline nodes
 Code nodes that split URL arrays into individual items return `[]` (empty array) when the input array is empty — not a placeholder item with `url: null`. A null URL passing through an IF gate with strict `notEquals ""` type validation evaluates as truthy (`null !== ""`), leaks into the HTTP Request node, and is stringified to the literal string `"null"` by n8n's expression engine, causing a "URL must start with http" error. Empty array stops the chain cleanly with zero items.
@@ -326,7 +351,7 @@ Before building, a manual competitor analysis was run on two sample products to 
 
 - **n8n expression format is load-bearing:** `=={{$json.url}}` (no space) causes n8n to prepend a literal `=` to every resolved URL — the sentinel `=` prefix strips correctly only when the expression body starts with `{{ ` (space after the opening braces). Every HTTP node URL field must use `={{ $json.url }}`, not `=={{$json.url}}`. One character difference, workflow-breaking result.
 - **Null URLs become the string "null" in n8n expressions:** When `$json.url` is JavaScript `null` and evaluated inside `={{ }}`, n8n stringifies it to the four-character string `"null"`. An IF node checking `url notEquals ""` with strict type validation passes null through because `null !== ""` is true. Fix: return `[]` from Code nodes when input arrays are empty — zero items, zero downstream execution.
-- **Bot detection requires infrastructure-level bypass, not header tricks:** Walmart's 412 response is triggered at the TLS layer, not the application layer. Rotating User-Agent headers has no effect. ScraperAPI is the correct solution — it should be treated as a required credential alongside the API keys, not a workaround added after the fact.
+- **Bot detection is a moving target, not a one-time fix:** Walmart's 412 response can be triggered at the TLS layer depending on request patterns. User-Agent spoofing is the v1 mitigation; if detection escalates, ScraperAPI (rotating residential proxies) is the correct next step — build the escalation path in before you need it.
 - **Modular scraper patterns expose bugs faster:** Building Walmart scraping as a parameterized copy of the Amazon pattern meant the same expression bug appeared in both — and was caught and fixed in both simultaneously. Consistency in node patterns makes debugging O(1) instead of O(n retailers).
 
 ---
@@ -347,7 +372,7 @@ Before building, a manual competitor analysis was run on two sample products to 
 | `README.md` | Project documentation (this file) |
 | `Competitor_Analysis_Report.html` | Final deliverable — styled HTML competitive intelligence report (Wayfair vs Amazon vs Walmart, Area Rugs). Sections: executive summary, competitor analysis, comparison table, pricing insights, whitespace analysis, strategic recommendations, supplier identification |
 | `Competitor_Analysis_Report.pdf` | PDF export of the final report — print-ready format for sharing with stakeholders |
-| `Wayfair_Competitor_Monitoring_Agent_Workflow_SAFE.json` | n8n workflow export — all credentials removed, session cookies replaced with env variable references |
+| `Wayfair_Competitor_Monitoring_Agent_Workflow.json` | n8n workflow export — all credentials stored as n8n credential references; no raw secrets |
 | `.env.example` | Environment variable template — copy to `.env` and fill in values; never committed to GitHub |
 | `.gitignore` | Blocks `.env`, credential exports, and OS/editor artifacts from being committed |
 | `Project03_Error_Log.docx` | Error log — all bugs encountered and resolved during build |
